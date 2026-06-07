@@ -1,6 +1,6 @@
 -- =============================================
---   Rivals Script v1.7
---   Smooth ESP + Cursor Fix + Bug Fixes
+--   Rivals Script v1.8
+--   Fixed ESP + Smooth + Nice Looking
 --   All features OFF by default
 -- =============================================
 
@@ -43,8 +43,7 @@ task.spawn(function()
     task.wait(3)
     local ok, gc = pcall(getgc, false)
     if not ok or not gc then return end
-    local hooked = 0
-    local idx    = 0
+    local hooked, idx = 0, 0
     for _, v in ipairs(gc) do
         idx += 1
         if idx % 300 == 0 then task.wait() end
@@ -81,11 +80,12 @@ end)
 
 task.spawn(function()
     task.wait(1)
-    local ok, sc = pcall(function() return game:GetService("ScriptContext") end)
-    if not ok then return end
-    local conns = {}
-    pcall(function() conns = getconnections(sc.Error) end)
-    for _, conn in ipairs(conns) do pcall(function() conn:Disable() end) end
+    pcall(function()
+        local sc = game:GetService("ScriptContext")
+        local conns = {}
+        pcall(function() conns = getconnections(sc.Error) end)
+        for _, conn in ipairs(conns) do pcall(function() conn:Disable() end) end
+    end)
 end)
 
 task.spawn(function()
@@ -142,32 +142,30 @@ task.spawn(function()
         local rf  = game:GetService("ReplicatedFirst")
         local ls3 = rf:FindFirstChild("LocalScript3")
         if not ls3 then return end
-        local c   = 0
-        local idx = 0
+        local c, idx = 0, 0
         for _, f in ipairs(gc) do
             idx += 1
             if idx % 300 == 0 then task.wait() end
             if typeof(f) ~= "function" then continue end
             local ok3, e = pcall(getfenv, f)
             if not ok3 or not e then continue end
-            local scr2 = rawget(e, "script")
-            if not scr2 then continue end
-            if scr2 ~= ls3 and not tostring(scr2):find("LoadingScreen") then continue end
+            local s2 = rawget(e, "script")
+            if not s2 then continue end
+            if s2 ~= ls3 and not tostring(s2):find("LoadingScreen") then continue end
             local ok4, cs = pcall(debug.getconstants, f)
             if not ok4 or not cs then continue end
             for _, k in ipairs(cs) do
                 if type(k) == "string" and (k:find("TakeTheL") or k:find("ban") or k:find("kick")) then
                     pcall(hookfunction, f, function() end)
-                    c += 1
-                    break
+                    c += 1; break
                 end
             end
         end
-        print("[AC] Neutered " .. c .. " AC closures")
+        print("[AC] Neutered " .. c .. " closures")
     end)
 end)
 
-print("[AC] Bypass layers queued (non-blocking)")
+print("[AC] Bypass queued")
 
 -- =============================================
 --   Linoria Library
@@ -181,13 +179,11 @@ local SaveManager  = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))(
 local Options = getgenv().Options
 local Toggles = getgenv().Toggles
 
--- Cursor: disable custom cursor by default to prevent disappearing
 Library.ShowCustomCursor = false
-
-Library.NotifySide = "Left"
+Library.NotifySide       = "Left"
 
 -- =============================================
---   Helpers
+--   Safe helpers
 -- =============================================
 
 local function safeRequire(inst)
@@ -209,12 +205,10 @@ end
 local ControllersFolder = safeWFC(lp.PlayerScripts, "Controllers", 5)
 local CameraController  = safeRequire(safeWFC(ControllersFolder, "CameraController", 5))
 local FighterController = safeRequire(safeWFC(ControllersFolder, "FighterController", 5))
-
-local ModulesFolder = safeWFC(ReplicatedStorage, "Modules", 5)
-local util          = safeRequire(safeWFC(ModulesFolder, "Utility", 5))
-local enums         = safeRequire(safeWFC(ModulesFolder, "EnumLibrary", 5))
-
-local GunModule = nil
+local ModulesFolder     = safeWFC(ReplicatedStorage, "Modules", 5)
+local util              = safeRequire(safeWFC(ModulesFolder, "Utility", 5))
+local enums             = safeRequire(safeWFC(ModulesFolder, "EnumLibrary", 5))
+local GunModule         = nil
 pcall(function() GunModule = require(lp.PlayerScripts.Modules.ItemTypes.Gun) end)
 
 -- =============================================
@@ -232,36 +226,35 @@ local MMFolder          = RemotesFolder and safeWFC(RemotesFolder, "Matchmaking"
 local QueueRemote       = MMFolder and safeWFC(MMFolder, "JoinQueue", 5)
 
 -- =============================================
---   Lists
+--   Constants / Lists
 -- =============================================
 
 local PRIMARY_WEAPONS = {
-    "Distortion","Permafrost","Energy Rifle","Flamethrower",
-    "Grenade Launcher","Minigun","Paintball","Assault Rifle",
-    "Bow","Burst Rifle","Crossbow","Gunblade","RPG","Shotgun","Sniper",
+    "Distortion","Permafrost","Energy Rifle","Flamethrower","Grenade Launcher",
+    "Minigun","Paintball","Assault Rifle","Bow","Burst Rifle","Crossbow",
+    "Gunblade","RPG","Shotgun","Sniper",
 }
 local SECONDARY_WEAPONS = {
-    "Warper","Energy Pistols","Exogun","Slingshot","Daggers",
-    "Flare Gun","Handgun","Revolver","Shorty","Spray","Uzi",
+    "Warper","Energy Pistols","Exogun","Slingshot","Daggers","Flare Gun",
+    "Handgun","Revolver","Shorty","Spray","Uzi",
 }
 local MELEE_WEAPONS = {
     "Maul","Spear","Trowel","Battle Axe","Chainsaw","Fist",
     "Katana","Knife","Riot Shield","Scythe",
 }
 local UTILITY_WEAPONS = {
-    "Grappler","Medkit","Subspace Tripmine","Warpstone",
-    "Flashbang","Freeze Ray","Grenade","Jump Pad",
-    "Molotov","Satchel","Smoke Grenade","War Horn",
+    "Grappler","Medkit","Subspace Tripmine","Warpstone","Flashbang",
+    "Freeze Ray","Grenade","Jump Pad","Molotov","Satchel","Smoke Grenade","War Horn",
 }
 local MAPS = {
-    "Arena","Big Arena","Backrooms","Big Backrooms","Legacy Backrooms",
-    "Baseplate","Battleground","Legacy Battleground","Bridge","Chess",
-    "Construction","Crossroads","Big Crossroads","Legacy Crossroads",
-    "Dimensions","Docks","Legacy Docks","Graveyard","Big Graveyard",
+    "Arena","Big Arena","Backrooms","Big Backrooms","Legacy Backrooms","Baseplate",
+    "Battleground","Legacy Battleground","Bridge","Chess","Construction","Crossroads",
+    "Big Crossroads","Legacy Crossroads","Dimensions","Docks","Legacy Docks",
+    "Graveyard","Big Graveyard",
 }
-local QUEUE_MODES  = {"1v1","2v2","3v3","4v4","5v5"}
-local PARTS        = {"Head","HumanoidRootPart","UpperTorso","LowerTorso","Body","Random"}
-local SKYBOX_LIST  = {"Default","Night Sky","Bliss","Sunset","Space"}
+local QUEUE_MODES = {"1v1","2v2","3v3","4v4","5v5"}
+local PARTS       = {"Head","HumanoidRootPart","UpperTorso","LowerTorso","Body","Random"}
+local SKYBOX_LIST = {"Default","Night Sky","Bliss","Sunset","Space"}
 
 local HIT_SOUNDS = {
     ["Rust"]="rbxassetid://4764109000",["Click"]="rbxassetid://6042053626",
@@ -282,15 +275,16 @@ for k in pairs(HIT_SOUNDS) do table.insert(HIT_SOUND_LIST,k) end
 table.sort(HIT_SOUND_LIST)
 
 local SKYBOXES = {
-    ["Default"]   = {Bk="rbxassetid://159454299",Dn="rbxassetid://159454296",Ft="rbxassetid://159454293",Lf="rbxassetid://159454286",Rt="rbxassetid://159454300",Up="rbxassetid://159454295"},
-    ["Night Sky"]  = {Bk="rbxassetid://3095606289",Dn="rbxassetid://3095606289",Ft="rbxassetid://3095606294",Lf="rbxassetid://3095606292",Rt="rbxassetid://3095606291",Up="rbxassetid://3095606290",isNight=true},
-    ["Bliss"]      = {Bk="rbxassetid://6444884337",Dn="rbxassetid://6422644718",Ft="rbxassetid://6444884344",Lf="rbxassetid://6444884341",Rt="rbxassetid://6444884348",Up="rbxassetid://6444884351"},
-    ["Sunset"]     = {Bk="rbxassetid://2708786809",Dn="rbxassetid://2708786814",Ft="rbxassetid://2708786816",Lf="rbxassetid://2708786812",Rt="rbxassetid://2708786819",Up="rbxassetid://2708786821"},
-    ["Space"]      = {Bk="rbxassetid://159454299",Dn="rbxassetid://159454296",Ft="rbxassetid://159454293",Lf="rbxassetid://159454286",Rt="rbxassetid://159454300",Up="rbxassetid://159454295",isSpace=true},
+    ["Default"]  = {Bk="rbxassetid://159454299",Dn="rbxassetid://159454296",Ft="rbxassetid://159454293",Lf="rbxassetid://159454286",Rt="rbxassetid://159454300",Up="rbxassetid://159454295"},
+    ["Night Sky"] = {Bk="rbxassetid://3095606289",Dn="rbxassetid://3095606289",Ft="rbxassetid://3095606294",Lf="rbxassetid://3095606292",Rt="rbxassetid://3095606291",Up="rbxassetid://3095606290",isNight=true},
+    ["Bliss"]    = {Bk="rbxassetid://6444884337",Dn="rbxassetid://6422644718",Ft="rbxassetid://6444884344",Lf="rbxassetid://6444884341",Rt="rbxassetid://6444884348",Up="rbxassetid://6444884351"},
+    ["Sunset"]   = {Bk="rbxassetid://2708786809",Dn="rbxassetid://2708786814",Ft="rbxassetid://2708786816",Lf="rbxassetid://2708786812",Rt="rbxassetid://2708786819",Up="rbxassetid://2708786821"},
+    ["Space"]    = {Bk="rbxassetid://159454299",Dn="rbxassetid://159454296",Ft="rbxassetid://159454293",Lf="rbxassetid://159454286",Rt="rbxassetid://159454300",Up="rbxassetid://159454295",isSpace=true},
 }
 
 local PMAP = {
-    ["Head"]={"Head"},["HumanoidRootPart"]={"HumanoidRootPart"},
+    ["Head"]={"Head"},
+    ["HumanoidRootPart"]={"HumanoidRootPart"},
     ["UpperTorso"]={"UpperTorso","Torso","HumanoidRootPart"},
     ["LowerTorso"]={"LowerTorso","Torso","HumanoidRootPart"},
     ["Body"]={"UpperTorso","LowerTorso","Torso","HumanoidRootPart"},
@@ -305,7 +299,7 @@ local function bPart(char, s)
             local p = char:FindFirstChild(n)
             if p then table.insert(av,p) end
         end
-        return #av>0 and av[math.random(1,#av)] or nil
+        return #av > 0 and av[math.random(1,#av)] or nil
     end
     for _, n in ipairs(pr) do
         local p = char:FindFirstChild(n)
@@ -314,7 +308,7 @@ local function bPart(char, s)
 end
 
 -- =============================================
---   Core Helpers
+--   Core utilities
 -- =============================================
 
 local function getScr()
@@ -347,11 +341,11 @@ local function isVis(orig, part)
     return ok and res or false
 end
 
-local function inFov(part, fovSz)
+local function inFov(part, sz)
     if not part then return false end
     local sp, on = cam:WorldToViewportPoint(part.Position)
     if not on then return false end
-    return (Vector2.new(sp.X,sp.Y) - getScr()).Magnitude <= fovSz
+    return (Vector2.new(sp.X,sp.Y) - getScr()).Magnitude <= sz
 end
 
 local function angDiff(f, t)
@@ -360,7 +354,7 @@ local function angDiff(f, t)
 end
 
 -- =============================================
---   Window
+--   Window + Tabs
 -- =============================================
 
 local Window = Library:CreateWindow({
@@ -383,7 +377,7 @@ local Tabs = {
 }
 
 -- =============================================
---   COMBAT TAB
+--   COMBAT TAB LAYOUT
 -- =============================================
 
 local CombatLeft   = Tabs.Combat:AddLeftTabbox()
@@ -397,24 +391,22 @@ local FOVTab       = CombatRight:AddTab("Aimbot FOV")
 local SilentFOVTab = CombatRight:AddTab("Silent FOV")
 
 -- =============================================
---   AIMBOT
+--   AIMBOT STATE + LOGIC
 -- =============================================
 
 local AB = {
-    on=false, part="Head", team=false, vis=false,
-    fov=150, drawFov=false, dynFov=false, lockMode="Soft",
-    curvePct=10, speed=1.0, speedAttack=1.0, speedScaleFov=50,
-    maxLock=3.0, reactTime=100, useCenter=false,
+    on=false,part="Head",team=false,vis=false,
+    fov=150,drawFov=false,dynFov=false,lockMode="Soft",
+    curvePct=10,speed=1.0,speedAttack=1.0,speedScaleFov=50,
+    maxLock=3.0,reactTime=100,useCenter=false,
 }
-
-local abTgt=nil; local abLockT=0; local abReactT=0
-local abDoReact=false; local abPrevPos=nil; local abPrevTick=0
-local abCurveProgress=0; local abCurveStart=nil; local abCurveEnd=nil
+local abTgt=nil;local abLockT=0;local abReactT=0
+local abDoReact=false;local abPrevPos=nil;local abPrevTick=0
+local abCurveProgress=0;local abCurveStart=nil;local abCurveEnd=nil
 
 local abCirc = Drawing.new("Circle")
-abCirc.NumSides=64; abCirc.Filled=false
-abCirc.Color=Color3.fromRGB(255,255,255)
-abCirc.Thickness=1.5; abCirc.Transparency=0.7; abCirc.Visible=false
+abCirc.NumSides=64;abCirc.Filled=false;abCirc.Color=Color3.fromRGB(255,255,255)
+abCirc.Thickness=1.5;abCirc.Transparency=0.7;abCirc.Visible=false
 
 local function abEffFov()
     return AB.dynFov and AB.fov*(cam.FieldOfView/70) or AB.fov
@@ -424,8 +416,8 @@ local function abTgtValid(pt)
     if not pt or not pt.Parent then return false end
     local h = pt.Parent:FindFirstChildOfClass("Humanoid")
     if not h or h.Health<=0 then return false end
-    if not inFov(pt, abEffFov()) then return false end
-    if AB.vis and not isVis(cam.CFrame.Position, pt) then return false end
+    if not inFov(pt,abEffFov()) then return false end
+    if AB.vis and not isVis(cam.CFrame.Position,pt) then return false end
     if AB.team then
         local p = Players:GetPlayerFromCharacter(pt.Parent)
         if p and sameTm(p) then return false end
@@ -436,22 +428,19 @@ end
 local function abFind()
     local center = AB.useCenter and getScr() or getMousePos()
     local fv = abEffFov()
-    local best, bd = nil, fv
-    for _, p in ipairs(Players:GetPlayers()) do
+    local best,bd = nil,fv
+    for _,p in ipairs(Players:GetPlayers()) do
         if p==lp then continue end
         if AB.team and sameTm(p) then continue end
-        local chr = p.Character
-        if not chr then continue end
+        local chr = p.Character; if not chr then continue end
         local hm = chr:FindFirstChildOfClass("Humanoid")
         if not hm or hm.Health<=0 then continue end
-        local pt = bPart(chr, AB.part)
-        if not pt then continue end
-        local sp, on = cam:WorldToViewportPoint(pt.Position)
-        if not on then continue end
+        local pt = bPart(chr,AB.part); if not pt then continue end
+        local sp,on = cam:WorldToViewportPoint(pt.Position); if not on then continue end
         local d = (Vector2.new(sp.X,sp.Y)-center).Magnitude
         if d < bd then
-            if AB.vis and not isVis(cam.CFrame.Position, pt) then continue end
-            bd=d; best=pt
+            if AB.vis and not isVis(cam.CFrame.Position,pt) then continue end
+            bd=d;best=pt
         end
     end
     return best
@@ -462,31 +451,31 @@ local function getPredictedPos(pt)
     local pos = pt.Position
     if abPrevPos and (now-abPrevTick)>0 then
         local vel = (pos-abPrevPos)/(now-abPrevTick)
-        pos = pos + vel*(0.08*AB.speedAttack)
+        pos = pos+vel*(0.08*AB.speedAttack)
     end
-    abPrevPos=pt.Position; abPrevTick=now
+    abPrevPos=pt.Position;abPrevTick=now
     return pos
 end
 
-local function applySmartLock(tRot, cur, dt, screenDist, fovRadius)
-    local distFactor = AB.speed
-    if fovRadius>0 then
-        local norm = math.clamp(screenDist/fovRadius,0,1)
-        distFactor = AB.speed+(AB.speedScaleFov/100)*(1-norm)*math.max(AB.speedAttack-AB.speed,0)
+local function applySmartLock(tRot,cur,dt,sd,fovR)
+    local df = AB.speed
+    if fovR>0 then
+        local n=math.clamp(sd/fovR,0,1)
+        df=AB.speed+(AB.speedScaleFov/100)*(1-n)*math.max(AB.speedAttack-AB.speed,0)
     end
-    local eff    = math.clamp(distFactor,0.01,5)
-    local factor = math.clamp(eff*dt*6,0,1)
+    local eff=math.clamp(df,0.01,5)
+    local fac=math.clamp(eff*dt*6,0,1)
     if AB.lockMode=="Soft" or AB.lockMode=="Magnet" then
-        return Vector2.new(cur.X+(tRot.X-cur.X)*factor, cur.Y+angDiff(cur.Y,tRot.Y)*factor)
+        return Vector2.new(cur.X+(tRot.X-cur.X)*fac, cur.Y+angDiff(cur.Y,tRot.Y)*fac)
     else
-        local dist = math.sqrt((tRot.X-cur.X)^2+angDiff(cur.Y,tRot.Y)^2)
-        if abCurveStart==nil or dist>0.5 then abCurveStart=cur; abCurveProgress=0 end
+        local dist=math.sqrt((tRot.X-cur.X)^2+angDiff(cur.Y,tRot.Y)^2)
+        if abCurveStart==nil or dist>0.5 then abCurveStart=cur;abCurveProgress=0 end
         abCurveEnd=tRot
         abCurveProgress=math.clamp(abCurveProgress+(AB.curvePct/100)*3*eff*dt,0,1)
-        local curved = abCurveProgress^2*(3-2*abCurveProgress)
-        local nP = abCurveStart.X+(abCurveEnd.X-abCurveStart.X)*curved
-        local nY = abCurveStart.Y+angDiff(abCurveStart.Y,abCurveEnd.Y)*curved
-        if abCurveProgress>=1 then abCurveStart=nil; abCurveProgress=0 end
+        local cv=abCurveProgress^2*(3-2*abCurveProgress)
+        local nP=abCurveStart.X+(abCurveEnd.X-abCurveStart.X)*cv
+        local nY=abCurveStart.Y+angDiff(abCurveStart.Y,abCurveEnd.Y)*cv
+        if abCurveProgress>=1 then abCurveStart=nil;abCurveProgress=0 end
         return Vector2.new(nP,nY)
     end
 end
@@ -510,20 +499,10 @@ AimbotTab:AddSlider("AimbotCurve",{Text="Curve Strength",Default=10,Min=1,Max=40
 AimbotTab:AddSlider("AimbotMaxLock",{Text="Max Lock Time",Default=300,Min=1,Max=1000,Rounding=0,Suffix="x0.01s",Callback=function(v)AB.maxLock=v/100 end})
 AimbotTab:AddSlider("AimbotReaction",{Text="Reaction Time",Default=100,Min=0,Max=500,Rounding=0,Suffix="ms",Callback=function(v)AB.reactTime=v end})
 
--- Aimbot FOV
-local fovCfg = {
-    visible=false,half=false,color=Color3.fromRGB(255,255,255),
-    fovSize=150,onTarget=60,onBarrier=200,useCenter=false,
-}
-local fovCircle = Drawing.new("Circle")
-fovCircle.Visible=false;fovCircle.Thickness=1.5
-fovCircle.Color=Color3.fromRGB(255,255,255)
-fovCircle.Filled=false;fovCircle.NumSides=64;fovCircle.Radius=150
-
-local fovHalf = Drawing.new("Circle")
-fovHalf.Visible=false;fovHalf.Thickness=1
-fovHalf.Color=Color3.fromRGB(255,255,255)
-fovHalf.Filled=false;fovHalf.NumSides=32;fovHalf.Radius=75
+-- FOV circle
+local fovCfg={visible=false,half=false,color=Color3.fromRGB(255,255,255),fovSize=150,onTarget=60,onBarrier=200,useCenter=false}
+local fovCircle=Drawing.new("Circle");fovCircle.Visible=false;fovCircle.Thickness=1.5;fovCircle.Color=Color3.fromRGB(255,255,255);fovCircle.Filled=false;fovCircle.NumSides=64;fovCircle.Radius=150
+local fovHalf=Drawing.new("Circle");fovHalf.Visible=false;fovHalf.Thickness=1;fovHalf.Color=Color3.fromRGB(255,255,255);fovHalf.Filled=false;fovHalf.NumSides=32;fovHalf.Radius=75
 
 FOVTab:AddToggle("FOVVisible",{Text="Show FOV Circle",Default=false,Callback=function(v)fovCfg.visible=v end})
 FOVTab:AddToggle("FOVHalf",{Text="Half Circle",Default=false,Callback=function(v)fovCfg.half=v end})
@@ -537,34 +516,25 @@ FOVTab:AddSlider("FOVOnBarrier",{Text="On Barrier Radius",Default=200,Min=10,Max
 --   SILENT AIM
 -- =============================================
 
-local silentCfg = {
-    enabled=false,hitChance=100,prediction=0,
-    visCheck=false,useCenter=false,fovSize=150,maxDist=200,
-    part="Head",circleVisible=false,
-    circleColor=Color3.fromRGB(0,200,255),
-    circleThick=1.5,targetColor=Color3.fromRGB(255,50,50),
+local silentCfg={
+    enabled=false,hitChance=100,prediction=0,visCheck=false,useCenter=false,
+    fovSize=150,maxDist=200,part="Head",circleVisible=false,
+    circleColor=Color3.fromRGB(0,200,255),circleThick=1.5,targetColor=Color3.fromRGB(255,50,50),
 }
-local silentCircle = Drawing.new("Circle")
-silentCircle.Thickness=1.5;silentCircle.Filled=false
-silentCircle.NumSides=64;silentCircle.Visible=false
-silentCircle.Radius=150;silentCircle.Color=Color3.fromRGB(0,200,255)
-
-local silentHooked=false; local origRaycast=nil
-local origMeta=nil; local origIndex=nil
+local silentCircle=Drawing.new("Circle");silentCircle.Thickness=1.5;silentCircle.Filled=false;silentCircle.NumSides=64;silentCircle.Visible=false;silentCircle.Radius=150;silentCircle.Color=Color3.fromRGB(0,200,255)
+local silentHooked=false;local origRaycast=nil;local origMeta=nil;local origIndex=nil
 
 local function getSilentTarget(origin)
-    local center = silentCfg.useCenter and getScr() or getMousePos()
-    local best, bestDist = nil, math.huge
-    for _, p in pairs(Players:GetPlayers()) do
+    local center=silentCfg.useCenter and getScr() or getMousePos()
+    local best,bestDist=nil,math.huge
+    for _,p in pairs(Players:GetPlayers()) do
         if p==lp then continue end
-        local char=p.Character; if not char then continue end
-        local head=bPart(char,silentCfg.part)
-        local hum=char:FindFirstChildOfClass("Humanoid")
+        local char=p.Character;if not char then continue end
+        local head=bPart(char,silentCfg.part);local hum=char:FindFirstChildOfClass("Humanoid")
         if not head or not hum or hum.Health<=0 then continue end
         if (origin-head.Position).Magnitude>silentCfg.maxDist then continue end
         if silentCfg.visCheck and not isVis(origin,head) then continue end
-        local sp,vis=cam:WorldToViewportPoint(head.Position)
-        if not vis then continue end
+        local sp,vis=cam:WorldToViewportPoint(head.Position);if not vis then continue end
         local d=(Vector2.new(sp.X,sp.Y)-center).Magnitude
         if d<silentCfg.fovSize and d<bestDist then bestDist=d;best=head end
     end
@@ -578,15 +548,15 @@ local function buildSilentWrapper(originalFunc)
             local orig=myRoot and myRoot.Position or cam.CFrame.Position
             local target=getSilentTarget(orig)
             if target then
-                local predictedPos=target.Position
+                local pp=target.Position
                 if silentCfg.prediction>0 then
                     pcall(function()
                         local hrp=target.Parent and target.Parent:FindFirstChild("HumanoidRootPart")
                         local vel=hrp and hrp.AssemblyLinearVelocity or Vector3.zero
-                        predictedPos=target.Position+vel*(silentCfg.prediction*0.05)
+                        pp=target.Position+vel*(silentCfg.prediction*0.05)
                     end)
                 end
-                return originalFunc(self,origin,predictedPos-origin,distance,...)
+                return originalFunc(self,origin,pp-origin,distance,...)
             end
         end
         return originalFunc(self,origin,direction,distance,...)
@@ -599,7 +569,7 @@ local function hookSilent()
     if ok and mt then
         local canSet=pcall(setrawmetatable,util,mt)
         if canSet then
-            origMeta=mt; origIndex=rawget(mt,"__index")
+            origMeta=mt;origIndex=rawget(mt,"__index")
             rawset(mt,"__index",function(t,k)
                 if k=="Raycast" then
                     local rf
@@ -612,11 +582,11 @@ local function hookSilent()
                 elseif type(origIndex)=="table" then return origIndex[k] end
                 return rawget(t,k)
             end)
-            silentHooked=true; return
+            silentHooked=true;return
         end
     end
     origRaycast=rawget(util,"Raycast") or util.Raycast
-    if origRaycast then rawset(util,"Raycast",buildSilentWrapper(origRaycast)); silentHooked=true end
+    if origRaycast then rawset(util,"Raycast",buildSilentWrapper(origRaycast));silentHooked=true end
 end
 
 local function unhookSilent()
@@ -634,7 +604,6 @@ SilentTab:AddSlider("SilentHitChance",{Text="Hit Chance",Default=100,Min=1,Max=1
 SilentTab:AddSlider("SilentPrediction",{Text="Prediction",Default=0,Min=0,Max=100,Rounding=0,Suffix="x0.05",Callback=function(v)silentCfg.prediction=v end})
 SilentTab:AddSlider("SilentFOV",{Text="Silent FOV",Default=150,Min=10,Max=600,Rounding=0,Suffix="px",Callback=function(v)silentCfg.fovSize=v;silentCircle.Radius=v end})
 SilentTab:AddSlider("SilentMaxDist",{Text="Max Distance",Default=200,Min=10,Max=2000,Rounding=0,Suffix="studs",Callback=function(v)silentCfg.maxDist=v end})
-
 SilentFOVTab:AddToggle("SilentCircleVisible",{Text="Show Silent FOV Circle",Default=false,Callback=function(v)silentCfg.circleVisible=v;if not v then silentCircle.Visible=false end end})
 SilentFOVTab:AddLabel("Normal Color"):AddColorPicker("SilentCircleColor",{Default=Color3.fromRGB(0,200,255),Title="Silent FOV Color",Callback=function(v)silentCfg.circleColor=v end})
 SilentFOVTab:AddLabel("On Target Color"):AddColorPicker("SilentTargetColor",{Default=Color3.fromRGB(255,50,50),Title="On Target Color",Callback=function(v)silentCfg.targetColor=v end})
@@ -646,23 +615,19 @@ SilentFOVTab:AddSlider("SilentCircleSegments",{Text="Circle Segments",Default=64
 --   RAGEBOT
 -- =============================================
 
-local rageCfg = {
+local rageCfg={
     enabled=false,improvedManip=false,
     v1y=12,v2y=16,v3y=20,v4y=24,v5y=28,v6y=32,v7y=36,v8y=40,
     v1x=0,v2x=0,v3x=0,v4x=0,v1z=0,v2z=0,v3z=0,v4z=0,
-    vectors={},
-    improv={scanAngle=15,multiPass=false,spiralScan=false,adaptDist=false},
+    vectors={},improv={scanAngle=15,multiPass=false,spiralScan=false,adaptDist=false},
 }
-local rageConn=nil; local rageRunning=false
-local ray_params=RaycastParams.new()
-ray_params.FilterType=Enum.RaycastFilterType.Exclude
+local rageConn=nil;local rageRunning=false
+local ray_params=RaycastParams.new();ray_params.FilterType=Enum.RaycastFilterType.Exclude
 
 local function rebuildVectors()
     rageCfg.vectors={
-        Vector3.new(rageCfg.v1x,rageCfg.v1y,rageCfg.v1z),
-        Vector3.new(rageCfg.v2x,rageCfg.v2y,rageCfg.v2z),
-        Vector3.new(rageCfg.v3x,rageCfg.v3y,rageCfg.v3z),
-        Vector3.new(rageCfg.v4x,rageCfg.v4y,rageCfg.v4z),
+        Vector3.new(rageCfg.v1x,rageCfg.v1y,rageCfg.v1z),Vector3.new(rageCfg.v2x,rageCfg.v2y,rageCfg.v2z),
+        Vector3.new(rageCfg.v3x,rageCfg.v3y,rageCfg.v3z),Vector3.new(rageCfg.v4x,rageCfg.v4y,rageCfg.v4z),
         Vector3.new(0,rageCfg.v5y,0),Vector3.new(0,rageCfg.v6y,0),
         Vector3.new(0,rageCfg.v7y,0),Vector3.new(0,rageCfg.v8y,0),
     }
@@ -698,10 +663,7 @@ local function improvedCalcPoint(origin,targetPos,targetChar)
         return r==nil or r.Instance:IsDescendantOf(targetChar)
     end
     if tryPoint(origin) then return origin,nil end
-    for _,offset in next,rageCfg.vectors do
-        local sp=origin+offset
-        if tryPoint(sp) then return sp,offset.Y end
-    end
+    for _,offset in next,rageCfg.vectors do local sp=origin+offset;if tryPoint(sp) then return sp,offset.Y end end
     if rageCfg.improv.multiPass then
         for _,offset in next,rageCfg.vectors do
             for angle=-45,45,rageCfg.improv.scanAngle do
@@ -712,27 +674,15 @@ local function improvedCalcPoint(origin,targetPos,targetChar)
         end
     end
     if rageCfg.improv.spiralScan then
-        for layer=1,4 do
-            local h=layer*8
-            for s=0,11 do
-                local a=(s/12)*math.pi*2
-                local sp=origin+Vector3.new(math.cos(a)*2*layer,h,math.sin(a)*2*layer)
-                if tryPoint(sp) then return sp,h end
-            end
+        for layer=1,4 do local h=layer*8
+            for s=0,11 do local a=(s/12)*math.pi*2;local sp=origin+Vector3.new(math.cos(a)*2*layer,h,math.sin(a)*2*layer);if tryPoint(sp) then return sp,h end end
         end
     end
     local sides={Vector3.new(2,0,0),Vector3.new(-2,0,0),Vector3.new(0,0,2),Vector3.new(0,0,-2),Vector3.new(3,8,0),Vector3.new(-3,8,0),Vector3.new(0,8,3),Vector3.new(0,8,-3)}
-    for _,side in next,sides do
-        local sp=origin+side
-        if tryPoint(sp) then return sp,side.Y end
-    end
+    for _,side in next,sides do local sp=origin+side;if tryPoint(sp) then return sp,side.Y end end
     if rageCfg.improv.adaptDist then
         local scale=math.clamp((origin-targetPos).Magnitude/50,0.5,3)
-        for _,offset in next,rageCfg.vectors do
-            local sc=Vector3.new(offset.X*scale,offset.Y*scale,offset.Z*scale)
-            local sp=origin+sc
-            if tryPoint(sp) then return sp,sc.Y end
-        end
+        for _,offset in next,rageCfg.vectors do local sc=Vector3.new(offset.X*scale,offset.Y*scale,offset.Z*scale);local sp=origin+sc;if tryPoint(sp) then return sp,sc.Y end end
     end
     return nil,nil
 end
@@ -742,12 +692,11 @@ local function startRagebot()
     rageRunning=false
     rageConn=RunService.Heartbeat:Connect(function()
         if not rageCfg.enabled or not lp.Character or rageRunning then return end
-        local root=lp.Character:FindFirstChild("HumanoidRootPart"); if not root then return end
+        local root=lp.Character:FindFirstChild("HumanoidRootPart");if not root then return end
         if not FighterController or not FighterController.LocalFighter then return end
-        local item=FighterController.LocalFighter.EquippedItem; if not item then return end
-        local tp,tc=rageGetClosest(); if not tp or not tc then return end
-        local camCF=cam.CFrame
-        local manip,height
+        local item=FighterController.LocalFighter.EquippedItem;if not item then return end
+        local tp,tc=rageGetClosest();if not tp or not tc then return end
+        local camCF=cam.CFrame;local manip,height
         if rageCfg.improvedManip then manip,height=improvedCalcPoint(camCF.Position,tp.Position,tc)
         else manip,height=rageCalcPoint(camCF.Position,tp.Position,tc) end
         if not manip then return end
@@ -755,10 +704,9 @@ local function startRagebot()
         task.spawn(function()
             pcall(function()
                 local so=height~=nil and Vector3.new(camCF.Position.X,camCF.Position.Y+height,camCF.Position.Z) or camCF.Position
-                local cf1=CFrame.lookAt(so,tp.Position)
-                local cf2=CFrame.lookAt(tp.Position,so)
+                local cf1=CFrame.lookAt(so,tp.Position);local cf2=CFrame.lookAt(tp.Position,so)
                 local rel=tp.CFrame:ToObjectSpace(CFrame.new(tp.Position))
-                local cd={}; cd[utf8.char(1)]={[utf8.char(0)]=util:EncodeCFrame(cf1),[utf8.char(1)]=util:EncodeCFrame(cf2),[utf8.char(2)]=tp,[utf8.char(3)]=util:EncodeCFrame(rel)}
+                local cd={};cd[utf8.char(1)]={[utf8.char(0)]=util:EncodeCFrame(cf1),[utf8.char(1)]=util:EncodeCFrame(cf2),[utf8.char(2)]=tp,[utf8.char(3)]=util:EncodeCFrame(rel)}
                 UseItemRemote:FireServer(item:Get("ObjectID"),enums:ToEnum("StartShooting"),cd,nil)
             end)
             rageRunning=false
@@ -772,7 +720,7 @@ local function stopRagebot()
 end
 
 RagebotTab:AddToggle("RagebotEnabled",{Text="Enable Ragebot",Default=false,Risky=true,Callback=function(v)rageCfg.enabled=v;if v then startRagebot();Library:Notify("Ragebot Active!",2) else stopRagebot();Library:Notify("Ragebot Off",2) end end})
-RagebotTab:AddToggle("ImprovedManip",{Text="Improved Manipulation",Default=false,Callback=function(v)rageCfg.improvedManip=v;Library:Notify(v and "Improved ON!" or "Standard Mode",2) end})
+RagebotTab:AddToggle("ImprovedManip",{Text="Improved Manipulation",Default=false,Callback=function(v)rageCfg.improvedManip=v;Library:Notify(v and "Improved ON!" or "Standard",2) end})
 RagebotTab:AddDivider();RagebotTab:AddLabel("── Improved Manip Settings ──")
 RagebotTab:AddSlider("ImprovScanAngle",{Text="Scan Angle",Default=15,Min=1,Max=90,Rounding=0,Suffix="°",Callback=function(v)rageCfg.improv.scanAngle=v end})
 RagebotTab:AddToggle("ImprovMultiPass",{Text="Multi-Pass Angle Scan",Default=false,Callback=function(v)rageCfg.improv.multiPass=v end})
@@ -790,7 +738,7 @@ for i,v in ipairs(vecZData) do local key=v.key;RagebotTab:AddSlider("RGVec"..i..
 RagebotTab:AddDivider()
 RagebotTab:AddButton({Text="Reset All Vectors",Func=function()rageCfg.v1y=12;rageCfg.v2y=16;rageCfg.v3y=20;rageCfg.v4y=24;rageCfg.v5y=28;rageCfg.v6y=32;rageCfg.v7y=36;rageCfg.v8y=40;rageCfg.v1x=0;rageCfg.v2x=0;rageCfg.v3x=0;rageCfg.v4x=0;rageCfg.v1z=0;rageCfg.v2z=0;rageCfg.v3z=0;rageCfg.v4z=0;rebuildVectors();Library:Notify("Vectors reset!",2)end})
 RagebotTab:AddButton({Text="Print Vectors",Func=function()for i,v in ipairs(rageCfg.vectors) do print(("Vec %d: X=%.1f Y=%.1f Z=%.1f"):format(i,v.X,v.Y,v.Z))end;Library:Notify("Printed!",2)end})
-RagebotTab:AddLabel("Passes:\n1. Direct LOS\n2. Standard offsets\n3. Multi-angle\n4. Spiral\n5. Side-step\n6. Adaptive",true)
+RagebotTab:AddLabel("Passes:\n1. Direct LOS\n2. Standard\n3. Multi-angle\n4. Spiral\n5. Side-step\n6. Adaptive",true)
 
 -- =============================================
 --   WALLBANG
@@ -799,7 +747,7 @@ RagebotTab:AddLabel("Passes:\n1. Direct LOS\n2. Standard offsets\n3. Multi-angle
 local WB={enabled=false,hitPart="Head"}
 local wbState={}
 do
-    local __gunMod=GunModule; local __utilMod=util
+    local __gunMod=GunModule;local __utilMod=util
     function wbState:init()
         self.active=false;self.target=nil;self.desync=false
         self.conn1=nil;self.conn2=nil;self.task1=nil;self.oldfunc=nil
@@ -809,9 +757,8 @@ do
         for _,p in next,Players:GetPlayers() do
             if p==lp then continue end
             if p:GetAttribute("TeamID")==lp:GetAttribute("TeamID") then continue end
-            local c=p.Character; if not c then continue end
-            local head=c:FindFirstChild("Head")
-            local hum=c:FindFirstChildWhichIsA("Humanoid")
+            local c=p.Character;if not c then continue end
+            local head=c:FindFirstChild("Head");local hum=c:FindFirstChildWhichIsA("Humanoid")
             if not(head and hum and hum.Health>0) then continue end
             local dist=(cam.CFrame.Position-head.Position).Magnitude
             if dist<bestDist then bestDist=dist;best=p end
@@ -827,36 +774,35 @@ do
         self.desync=true
         self.conn2=RunService.Heartbeat:Connect(function()
             if not self.desync then return end
-            local root=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart"); if not root then return end
-            local tc=targetPlayer.Character; if not tc then self:desyncStop();return end
-            local head=tc:FindFirstChild("Head"); if not head then self:desyncStop();return end
-            local savedCF=root.CFrame; local savedLV=root.AssemblyLinearVelocity; local savedAV=root.AssemblyAngularVelocity
+            local root=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart");if not root then return end
+            local tc=targetPlayer.Character;if not tc then self:desyncStop();return end
+            local head=tc:FindFirstChild("Head");if not head then self:desyncStop();return end
+            local sCF=root.CFrame;local sLV=root.AssemblyLinearVelocity;local sAV=root.AssemblyAngularVelocity
             root.CFrame=head.CFrame*CFrame.new(0,-5,0)
             RunService:BindToRenderStep("__wbRestore",101,function()
-                pcall(function()root.CFrame=savedCF;root.AssemblyLinearVelocity=savedLV;root.AssemblyAngularVelocity=savedAV end)
+                pcall(function()root.CFrame=sCF;root.AssemblyLinearVelocity=sLV;root.AssemblyAngularVelocity=sAV end)
                 RunService:UnbindFromRenderStep("__wbRestore")
             end)
         end)
     end
     function wbState:desyncStop()
-        self.desync=false
-        if self.conn2 then self.conn2:Disconnect();self.conn2=nil end
+        self.desync=false;if self.conn2 then self.conn2:Disconnect();self.conn2=nil end
     end
     function wbState:setup()
         if self.conn1 then self.conn1:Disconnect() end
         self.conn1=RunService.Heartbeat:Connect(function()if not self.active then return end;self.target=self:find()end)
         if not __gunMod then return end
-        local origSSFunc=__gunMod.StartShooting; self.oldfunc=origSSFunc
+        local origSSFunc=__gunMod.StartShooting;self.oldfunc=origSSFunc
         __gunMod.StartShooting=function(gunSelf,...)
             local results={origSSFunc(gunSelf,...)}
             if not gunSelf.ClientFighter or not gunSelf.ClientFighter.IsLocalPlayer then return table.unpack(results) end
-            local sd=results[3]; if not sd or typeof(sd)~="table" then return table.unpack(results) end
+            local sd=results[3];if not sd or typeof(sd)~="table" then return table.unpack(results) end
             results[4]=true
-            local tgp=self.target; if not self.active or not tgp or not tgp.Character then return table.unpack(results) end
-            self:desyncStart(tgp); task.wait(0.1)
+            local tgp=self.target;if not self.active or not tgp or not tgp.Character then return table.unpack(results) end
+            self:desyncStart(tgp);task.wait(0.1)
             if self.task1 then task.cancel(self.task1);self.task1=nil end
-            local ap=self:getHitPart(tgp.Character); if not ap then return table.unpack(results) end
-            local tp=ap.Position; local tcf=ap.CFrame; local op=tp-Vector3.new(0,3,0)
+            local ap=self:getHitPart(tgp.Character);if not ap then return table.unpack(results) end
+            local tp=ap.Position;local tcf=ap.CFrame;local op=tp-Vector3.new(0,3,0)
             if __utilMod then
                 pcall(function()
                     sd[utf8.char(0)]=__utilMod:EncodeCFrame(CFrame.new(op,tp))
@@ -885,9 +831,8 @@ wbState:init()
 
 WallbangTab:AddToggle("WallbangEnabled",{Text="Enable Wallbang",Default=false,Risky=true,Callback=function(v)WB.enabled=v;if v then wbState:Start() else wbState:Shutdown() end end})
 WallbangTab:AddDropdown("WallbangHitPart",{Text="Hit Part",Values={"Head","Body"},Default=1,Multi=false,Callback=function(v)WB.hitPart=v end})
-WallbangTab:AddDivider()
-WallbangTab:AddLabel("How it works:\n\n1. Hooks Gun.StartShooting\n2. Finds closest enemy\n3. Desync teleports HRP\n4. Encodes fake shoot data\n5. Restores via RenderStep\n\nShoots through walls.",true)
-WallbangTab:AddButton({Text="Force Find Target",Func=function()local tg=wbState:find();Library:Notify(tg and "Target: "..tg.Name or "No target found!",3)end})
+WallbangTab:AddDivider();WallbangTab:AddLabel("Hooks Gun.StartShooting\nDesync teleport + fake shoot data\nShoots through walls",true)
+WallbangTab:AddButton({Text="Force Find Target",Func=function()local tg=wbState:find();Library:Notify(tg and "Target: "..tg.Name or "No target!",3)end})
 
 -- =============================================
 --   HIT SOUND
@@ -905,7 +850,7 @@ end
 local function applyHitSound(sid,vol,pitch)
     if hitSoundConn then hitSoundConn:Disconnect();hitSoundConn=nil end
     task.spawn(function()
-        local vm=findViewModel(); if not vm then Library:Notify("Hit Sound: VM not found!",3);return end
+        local vm=findViewModel();if not vm then Library:Notify("VM not found!",3);return end
         for _,v in pairs(vm:GetChildren())do
             if v:IsA("Sound") and v.SoundId~="rbxassetid://16537449730" then
                 pcall(function()v.SoundId=sid;v.Pitch=pitch;v.Volume=vol end)
@@ -931,9 +876,16 @@ HitSoundTab:AddSlider("HitSoundPitch",{Text="Pitch",Default=10,Min=1,Max=30,Roun
 
 -- =============================================
 --   ESP SYSTEM
---   Runs every frame (RenderStepped) for smooth
---   movement — only does heavy work when enabled
---   All drawing is direct — no state machine bugs
+--   Key fixes vs previous versions:
+--   1. getBox now uses WorldToViewportPoint on
+--      actual world-space corner positions
+--      (not CFrame * Vector3 which is wrong)
+--   2. Pool uses a proper Players lookup table
+--      to track valid players — no p.Parent bug
+--   3. Runs every single RenderStepped frame
+--      for perfectly smooth 60fps+ tracking
+--   4. Drawings are nicely styled with outlines,
+--      gradient health, corner brackets option
 -- =============================================
 
 local ESPLeft       = Tabs.ESP:AddLeftTabbox()
@@ -944,32 +896,56 @@ local ESPColorsTab  = ESPRight:AddTab("Colors")
 local ESPFiltersTab = ESPRight:AddTab("Filters")
 
 local espCfg = {
-    enabled=false,
-    box=false,fill=false,skeleton=false,name=false,
-    weapon=false,distance=false,healthBar=false,resizeOutline=false,
-    healthBarStyle="Left",healthBarGradient=false,
-    teamCheck=false,visibleOnly=false,maxDist=1000,
+    enabled          = false,
+    box              = false,
+    corners          = false,  -- Corner bracket style box
+    fill             = false,
+    skeleton         = false,
+    name             = false,
+    weapon           = false,
+    distance         = false,
+    healthBar        = false,
+    resizeOutline    = false,
+    healthBarStyle   = "Left",
+    healthBarGradient= false,
+    teamCheck        = false,
+    visibleOnly      = false,
+    maxDist          = 1000,
     -- Colors
-    boxColorEnemy   = Color3.fromRGB(255,60,60),
-    boxColorVisible = Color3.fromRGB(60,255,60),
-    fillColor       = Color3.fromRGB(255,255,255),
-    fillTransparency= 0.7,
-    skeletonColor   = Color3.fromRGB(255,255,0),
-    nameColor       = Color3.fromRGB(255,255,255),
-    weaponColor     = Color3.fromRGB(180,180,255),
-    distColor       = Color3.fromRGB(200,200,200),
-    outlineColor    = Color3.fromRGB(0,0,0),
-    -- Sizes
-    boxThick=1,skelThick=1,nameSize=13,weaponSize=11,distSize=11,
-    hpWidth=3,hpOffset=5,
+    boxEnemy         = Color3.fromRGB(255, 60, 60),
+    boxVisible       = Color3.fromRGB(60, 220, 60),
+    boxTeam          = Color3.fromRGB(60, 120, 255),
+    fillColor        = Color3.fromRGB(255, 255, 255),
+    fillTrans        = 0.75,
+    skelColor        = Color3.fromRGB(255, 220, 0),
+    nameColor        = Color3.fromRGB(255, 255, 255),
+    weaponColor      = Color3.fromRGB(160, 160, 255),
+    distColor        = Color3.fromRGB(180, 180, 180),
+    outlineColor     = Color3.fromRGB(0, 0, 0),
+    -- Thickness
+    boxThick         = 1,
+    skelThick        = 1,
+    -- Text sizes
+    nameSize         = 13,
+    weaponSize       = 11,
+    distSize         = 11,
+    -- Health bar
+    hpBarWidth       = 3,
+    hpBarOffset      = 5,
+    -- Corner bracket size (fraction of box)
+    cornerLength     = 0.25,
 }
 
--- Per-player drawing object table
--- Created lazily, never throttled
--- All updates happen every frame for smooth tracking
-local espPool = {}
+-- =============================================
+--   ESP Drawing Pool
+--   One set of Drawing objects per player
+--   Created once, reused every frame
+-- =============================================
 
-local SKELETON_R15 = {
+local espPool       = {}   -- [Player] = { drawings }
+local espValidSet   = {}   -- [Player] = true  (rebuilt each frame)
+
+local SKEL_R15 = {
     {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
     {"LowerTorso","LeftUpperLeg"},{"LowerTorso","RightUpperLeg"},
     {"LeftUpperLeg","LeftLowerLeg"},{"RightUpperLeg","RightLowerLeg"},
@@ -978,321 +954,472 @@ local SKELETON_R15 = {
     {"LeftUpperArm","LeftLowerArm"},{"RightUpperArm","RightLowerArm"},
     {"LeftLowerArm","LeftHand"},{"RightLowerArm","RightHand"},
 }
-local SKELETON_R6 = {
+local SKEL_R6 = {
     {"Head","Torso"},{"Torso","Left Arm"},{"Torso","Right Arm"},
     {"Torso","Left Leg"},{"Torso","Right Leg"},
 }
-local MAX_BONES = math.max(#SKELETON_R15, #SKELETON_R6)
+local MAX_BONES = math.max(#SKEL_R15, #SKEL_R6)
 
-local function newDraw(t, props)
-    local d = Drawing.new(t)
+local function newLine(props)
+    local d = Drawing.new("Line")
+    d.Visible   = false
+    d.Thickness = 1
+    d.Color     = Color3.new(1,1,1)
+    d.ZIndex    = 5
     if props then for k,v in pairs(props) do d[k]=v end end
     return d
 end
 
--- Creates all drawings for a player upfront
-local function createESPForPlayer(p)
+local function newText(props)
+    local d = Drawing.new("Text")
+    d.Visible  = false
+    d.Size     = 13
+    d.Center   = true
+    d.Outline  = true
+    d.Font     = Drawing.Fonts.UI
+    d.Color    = Color3.new(1,1,1)
+    d.ZIndex   = 7
+    if props then for k,v in pairs(props) do d[k]=v end end
+    return d
+end
+
+local function newSquare(props)
+    local d = Drawing.new("Square")
+    d.Visible      = false
+    d.Filled       = true
+    d.Color        = Color3.new(1,1,1)
+    d.Transparency = 0.75
+    d.ZIndex       = 3
+    if props then for k,v in pairs(props) do d[k]=v end end
+    return d
+end
+
+-- Creates all drawing objects for one player
+local function createESPObjects(p)
     if espPool[p] then return end
+
     local obj = {
-        -- Box (4 edges)
-        bT=newDraw("Line",{Visible=false,ZIndex=5,Thickness=1,Color=Color3.new(1,0,0)}),
-        bB=newDraw("Line",{Visible=false,ZIndex=5,Thickness=1,Color=Color3.new(1,0,0)}),
-        bL=newDraw("Line",{Visible=false,ZIndex=5,Thickness=1,Color=Color3.new(1,0,0)}),
-        bR=newDraw("Line",{Visible=false,ZIndex=5,Thickness=1,Color=Color3.new(1,0,0)}),
-        -- Outline (drawn behind box for contrast)
-        oT=newDraw("Line",{Visible=false,ZIndex=4,Thickness=3,Color=Color3.new(0,0,0)}),
-        oB=newDraw("Line",{Visible=false,ZIndex=4,Thickness=3,Color=Color3.new(0,0,0)}),
-        oL=newDraw("Line",{Visible=false,ZIndex=4,Thickness=3,Color=Color3.new(0,0,0)}),
-        oR=newDraw("Line",{Visible=false,ZIndex=4,Thickness=3,Color=Color3.new(0,0,0)}),
+        -- Full box (4 lines)
+        bT  = newLine({ZIndex=5}), bB  = newLine({ZIndex=5}),
+        bL  = newLine({ZIndex=5}), bR  = newLine({ZIndex=5}),
+        -- Box outline (shadow behind box)
+        oT  = newLine({ZIndex=4,Thickness=3,Color=Color3.new(0,0,0)}),
+        oB  = newLine({ZIndex=4,Thickness=3,Color=Color3.new(0,0,0)}),
+        oL  = newLine({ZIndex=4,Thickness=3,Color=Color3.new(0,0,0)}),
+        oR  = newLine({ZIndex=4,Thickness=3,Color=Color3.new(0,0,0)}),
+        -- Corner brackets (8 lines: 2 per corner)
+        -- TL, TR, BL, BR corners x (horizontal, vertical)
+        cTLh=newLine({ZIndex=6}),cTLv=newLine({ZIndex=6}),
+        cTRh=newLine({ZIndex=6}),cTRv=newLine({ZIndex=6}),
+        cBLh=newLine({ZIndex=6}),cBLv=newLine({ZIndex=6}),
+        cBRh=newLine({ZIndex=6}),cBRv=newLine({ZIndex=6}),
+        -- Corner outlines
+        cTLho=newLine({ZIndex=5,Thickness=3,Color=Color3.new(0,0,0)}),cTLvo=newLine({ZIndex=5,Thickness=3,Color=Color3.new(0,0,0)}),
+        cTRho=newLine({ZIndex=5,Thickness=3,Color=Color3.new(0,0,0)}),cTRvo=newLine({ZIndex=5,Thickness=3,Color=Color3.new(0,0,0)}),
+        cBLho=newLine({ZIndex=5,Thickness=3,Color=Color3.new(0,0,0)}),cBLvo=newLine({ZIndex=5,Thickness=3,Color=Color3.new(0,0,0)}),
+        cBRho=newLine({ZIndex=5,Thickness=3,Color=Color3.new(0,0,0)}),cBRvo=newLine({ZIndex=5,Thickness=3,Color=Color3.new(0,0,0)}),
         -- Fill
-        fill=newDraw("Square",{Visible=false,ZIndex=3,Filled=true,Color=Color3.new(1,1,1),Transparency=0.7}),
-        -- Text labels
-        nameTag  =newDraw("Text",{Visible=false,ZIndex=7,Size=13,Center=true,Outline=true,Font=Drawing.Fonts.UI,Color=Color3.new(1,1,1)}),
-        weaponTag=newDraw("Text",{Visible=false,ZIndex=7,Size=11,Center=true,Outline=true,Font=Drawing.Fonts.UI,Color=Color3.fromRGB(180,180,255)}),
-        distTag  =newDraw("Text",{Visible=false,ZIndex=7,Size=11,Center=true,Outline=true,Font=Drawing.Fonts.UI,Color=Color3.fromRGB(200,200,200)}),
-        -- Health bar
-        hpBg=newDraw("Line",{Visible=false,ZIndex=5,Thickness=5,Color=Color3.new(0,0,0)}),
-        hpFg=newDraw("Line",{Visible=false,ZIndex=6,Thickness=3,Color=Color3.fromRGB(60,220,60)}),
-        -- Skeleton lines
-        bones={},
+        fill = newSquare(),
+        -- Labels
+        nameTag   = newText({Size=13}),
+        weaponTag = newText({Size=11,Color=Color3.fromRGB(160,160,255)}),
+        distTag   = newText({Size=11,Color=Color3.fromRGB(180,180,180)}),
+        -- Health bar (background + foreground)
+        hpBg = newLine({ZIndex=5,Thickness=5,Color=Color3.new(0,0,0)}),
+        hpFg = newLine({ZIndex=6,Thickness=3,Color=Color3.fromRGB(60,220,60)}),
+        -- Skeleton
+        bones = {},
     }
-    for i=1,MAX_BONES do
-        obj.bones[i]=newDraw("Line",{Visible=false,ZIndex=5,Thickness=1,Color=Color3.fromRGB(255,255,0)})
+
+    for i = 1, MAX_BONES do
+        obj.bones[i] = newLine({ZIndex=5,Color=Color3.fromRGB(255,220,0)})
     end
-    espPool[p]=obj
+
+    espPool[p] = obj
 end
 
-local function destroyESPForPlayer(p)
-    local obj=espPool[p]; if not obj then return end
-    local keys={"bT","bB","bL","bR","oT","oB","oL","oR","fill","nameTag","weaponTag","distTag","hpBg","hpFg"}
-    for _,k in ipairs(keys) do pcall(function()obj[k]:Remove()end) end
-    for _,bone in ipairs(obj.bones) do pcall(function()bone:Remove()end) end
-    espPool[p]=nil
-end
-
-local function hideESP(obj)
+local function destroyESPObjects(p)
+    local obj = espPool[p]
     if not obj then return end
-    obj.bT.Visible=false;obj.bB.Visible=false;obj.bL.Visible=false;obj.bR.Visible=false
-    obj.oT.Visible=false;obj.oB.Visible=false;obj.oL.Visible=false;obj.oR.Visible=false
-    obj.fill.Visible=false;obj.nameTag.Visible=false;obj.weaponTag.Visible=false
-    obj.distTag.Visible=false;obj.hpBg.Visible=false;obj.hpFg.Visible=false
-    for _,bone in ipairs(obj.bones) do bone.Visible=false end
+    local keys = {
+        "bT","bB","bL","bR","oT","oB","oL","oR",
+        "cTLh","cTLv","cTRh","cTRv","cBLh","cBLv","cBRh","cBRv",
+        "cTLho","cTLvo","cTRho","cTRvo","cBLho","cBLvo","cBRho","cBRvo",
+        "fill","nameTag","weaponTag","distTag","hpBg","hpFg",
+    }
+    for _,k in ipairs(keys) do
+        pcall(function() obj[k]:Remove() end)
+    end
+    for _,bone in ipairs(obj.bones) do
+        pcall(function() bone:Remove() end)
+    end
+    espPool[p] = nil
 end
 
--- Get 2D bounding box from character using head+HRP positions
--- Smooth because it uses actual part positions every frame
-local function getBox(char)
-    local hrp  = char:FindFirstChild("HumanoidRootPart")
-    local head = char:FindFirstChild("Head")
-    if not hrp or not head then return nil end
+local function hideObj(obj)
+    if not obj then return end
+    local keys = {
+        "bT","bB","bL","bR","oT","oB","oL","oR",
+        "cTLh","cTLv","cTRh","cTRv","cBLh","cBLv","cBRh","cBRv",
+        "cTLho","cTLvo","cTRho","cTRvo","cBLho","cBLvo","cBRho","cBRvo",
+        "fill","nameTag","weaponTag","distTag","hpBg","hpFg",
+    }
+    for _,k in ipairs(keys) do
+        if obj[k] then obj[k].Visible = false end
+    end
+    for _,bone in ipairs(obj.bones) do
+        bone.Visible = false
+    end
+end
 
-    -- Use 8 corners of a character-sized box
-    local root = hrp.CFrame
-    local halfW = 1.2
-    local yBot  = -3.2
-    local yTop  = (head.Position.Y - hrp.Position.Y) + 1.2
+-- =============================================
+--   getBox: correct implementation
+--   Projects 8 world-space corners of a
+--   character-sized bounding box to screen
+--   Returns: x, y, w, h  (top-left + size)
+--   or nil if off screen
+-- =============================================
 
+local function getBox(hrp, head)
+    -- Character box dimensions
+    local rootPos = hrp.Position
+    local headTop = head.Position + Vector3.new(0, 0.6, 0)
+
+    -- Height from feet to head top
+    local yTop = headTop.Y - rootPos.Y
+    local yBot = -3.0  -- feet offset from HRP
+
+    -- Half-width of character
+    local hw = 1.05
+
+    -- Build 8 world-space corners
+    -- We align corners to world axes (not character rotation)
+    -- This prevents the box spinning when player turns
     local corners = {
-        root*Vector3.new(-halfW, yBot, -halfW),
-        root*Vector3.new( halfW, yBot, -halfW),
-        root*Vector3.new(-halfW, yBot,  halfW),
-        root*Vector3.new( halfW, yBot,  halfW),
-        root*Vector3.new(-halfW, yTop, -halfW),
-        root*Vector3.new( halfW, yTop, -halfW),
-        root*Vector3.new(-halfW, yTop,  halfW),
-        root*Vector3.new( halfW, yTop,  halfW),
+        Vector3.new(rootPos.X-hw, rootPos.Y+yBot, rootPos.Z-hw),
+        Vector3.new(rootPos.X+hw, rootPos.Y+yBot, rootPos.Z-hw),
+        Vector3.new(rootPos.X-hw, rootPos.Y+yBot, rootPos.Z+hw),
+        Vector3.new(rootPos.X+hw, rootPos.Y+yBot, rootPos.Z+hw),
+        Vector3.new(rootPos.X-hw, rootPos.Y+yTop, rootPos.Z-hw),
+        Vector3.new(rootPos.X+hw, rootPos.Y+yTop, rootPos.Z-hw),
+        Vector3.new(rootPos.X-hw, rootPos.Y+yTop, rootPos.Z+hw),
+        Vector3.new(rootPos.X+hw, rootPos.Y+yTop, rootPos.Z+hw),
     }
 
-    local minX,minY,maxX,maxY = math.huge,math.huge,-math.huge,-math.huge
-    local anyVisible = false
+    local minX, minY =  math.huge,  math.huge
+    local maxX, maxY = -math.huge, -math.huge
+    local any = false
 
-    for _,c in ipairs(corners) do
-        local sp,on = cam:WorldToViewportPoint(c)
-        if on and sp.Z > 0 then
-            anyVisible = true
-            if sp.X < minX then minX=sp.X end
-            if sp.Y < minY then minY=sp.Y end
-            if sp.X > maxX then maxX=sp.X end
-            if sp.Y > maxY then maxY=sp.Y end
+    for _, corner in ipairs(corners) do
+        local sp, onScreen = cam:WorldToViewportPoint(corner)
+        if onScreen and sp.Z > 0 then
+            any = true
+            if sp.X < minX then minX = sp.X end
+            if sp.Y < minY then minY = sp.Y end
+            if sp.X > maxX then maxX = sp.X end
+            if sp.Y > maxY then maxY = sp.Y end
         end
     end
 
-    if not anyVisible then return nil end
-    return minX, minY, maxX-minX, maxY-minY
+    if not any then return nil end
+
+    -- Clamp to viewport so lines don't go off screen weirdly
+    local vx = cam.ViewportSize.X
+    local vy = cam.ViewportSize.Y
+    minX = math.clamp(minX, 0, vx)
+    minY = math.clamp(minY, 0, vy)
+    maxX = math.clamp(maxX, 0, vx)
+    maxY = math.clamp(maxY, 0, vy)
+
+    local w = maxX - minX
+    local h = maxY - minY
+
+    -- Discard tiny/degenerate boxes (player very far or edge case)
+    if w < 2 or h < 2 then return nil end
+
+    return minX, minY, w, h
 end
 
+-- Health color (green -> yellow -> red)
 local function getHPColor(pct)
-    if not espCfg.healthBarGradient then return Color3.fromRGB(60,220,60) end
-    pct=math.clamp(pct,0,1)
-    if pct>=0.5 then
-        local t=(pct-0.5)/0.5
-        return Color3.fromRGB(math.floor(255*(1-t)),200,0)
+    if not espCfg.healthBarGradient then
+        return Color3.fromRGB(60, 220, 60)
+    end
+    pct = math.clamp(pct, 0, 1)
+    if pct >= 0.5 then
+        local t = (pct-0.5)/0.5
+        return Color3.fromRGB(math.floor(255*(1-t)), 210, 0)
     else
-        local t=pct/0.5
-        return Color3.fromRGB(210,math.floor(200*t),0)
+        local t = pct/0.5
+        return Color3.fromRGB(210, math.floor(210*t), 0)
     end
 end
 
 local function getWeapon(char)
-    for _,v in ipairs(char:GetChildren()) do if v:IsA("Tool") then return v.Name end end
+    for _,v in ipairs(char:GetChildren()) do
+        if v:IsA("Tool") then return v.Name end
+    end
     return "None"
 end
 
-Players.PlayerRemoving:Connect(destroyESPForPlayer)
-
--- Pre-create ESP objects for all current players
--- and new ones joining
-Players.PlayerAdded:Connect(function(p)
-    -- Wait for character then create if ESP enabled
-    p.CharacterAdded:Connect(function()
-        if espCfg.enabled then
-            task.wait(0.5)
-            createESPForPlayer(p)
-        end
-    end)
-end)
+-- Helper: set a line's endpoints + properties and make visible
+local function setLine(ln, x1, y1, x2, y2, color, thickness)
+    ln.From      = Vector2.new(x1, y1)
+    ln.To        = Vector2.new(x2, y2)
+    ln.Color     = color
+    ln.Thickness = thickness
+    ln.Visible   = true
+end
 
 -- =============================================
---   ESP Render — called every RenderStepped
---   No throttling — runs at full framerate
---   This is the key fix for smooth ESP
+--   Main ESP render function
+--   Called every RenderStepped — no throttle
+--   Full 60fps smooth tracking
 -- =============================================
 
 local function renderESP()
+    -- Rebuild valid set this frame
+    table.clear(espValidSet)
+
     if not espCfg.enabled then
-        -- Hide all and return fast
-        for _,obj in pairs(espPool) do hideESP(obj) end
+        for _, obj in pairs(espPool) do hideObj(obj) end
         return
     end
 
-    local camPos  = cam.CFrame.Position
-    local myRoot  = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-    local myPos   = myRoot and myRoot.Position or camPos
+    local camPos = cam.CFrame.Position
+    local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    local myPos  = myRoot and myRoot.Position or camPos
 
-    for _,p in ipairs(Players:GetPlayers()) do
+    for _, p in ipairs(Players:GetPlayers()) do
         if p == lp then continue end
+        espValidSet[p] = true
 
-        -- Create pool entry if missing
-        if not espPool[p] then createESPForPlayer(p) end
+        -- Ensure pool entry exists
+        if not espPool[p] then createESPObjects(p) end
         local obj = espPool[p]
 
-        -- Early exit checks
-        if espCfg.teamCheck and sameTm(p) then hideESP(obj); continue end
+        -- Team filter
+        if espCfg.teamCheck and sameTm(p) then
+            hideObj(obj); continue
+        end
 
         local char = p.Character
-        if not char then hideESP(obj); continue end
+        if not char then hideObj(obj); continue end
 
         local hum  = char:FindFirstChildOfClass("Humanoid")
         local hrp  = char:FindFirstChild("HumanoidRootPart")
         local head = char:FindFirstChild("Head")
 
         if not hum or not hrp or not head or hum.Health <= 0 then
-            hideESP(obj); continue
+            hideObj(obj); continue
         end
 
+        -- Distance filter
         local dist = (myPos - hrp.Position).Magnitude
-        if dist > espCfg.maxDist then hideESP(obj); continue end
+        if dist > espCfg.maxDist then hideObj(obj); continue end
 
-        -- Check if on screen via head position
+        -- Quick on-screen check using head
         local headSP, headOn = cam:WorldToViewportPoint(head.Position)
-        if not headOn or headSP.Z <= 0 then hideESP(obj); continue end
+        if not headOn or headSP.Z <= 0 then hideObj(obj); continue end
 
-        -- Visibility (only compute if needed)
+        -- Visibility check (only if needed — expensive)
         local visible = false
-        if espCfg.visibleOnly or espCfg.box then
+        if espCfg.box or espCfg.corners or espCfg.visibleOnly then
             visible = isVis(camPos, head)
         end
-        if espCfg.visibleOnly and not visible then hideESP(obj); continue end
+        if espCfg.visibleOnly and not visible then hideObj(obj); continue end
 
-        -- Get smooth bounding box (every frame = no lag)
-        local bx, by, bw, bh = getBox(char)
-        if not bx then hideESP(obj); continue end
+        -- Get 2D bounding box
+        local bx, by, bw, bh = getBox(hrp, head)
+        if not bx then hideObj(obj); continue end
 
-        local boxCol    = visible and espCfg.boxColorVisible or espCfg.boxColorEnemy
-        local outThick  = espCfg.boxThickness + (espCfg.resizeOutline and math.clamp(math.floor(400/math.max(dist,1)),1,4) or 1)
-        local bThick    = espCfg.boxThickness
+        -- Pick color based on visibility
+        local boxCol = visible and espCfg.boxVisible or espCfg.boxEnemy
+        local bT     = espCfg.boxThick
+        local oT     = bT + 2
 
-        -- ── BOX ──
-        if espCfg.box then
-            -- Outline
-            local oc = espCfg.outlineColor
-            local ot = outThick + 1
-            obj.oT.From=Vector2.new(bx-1,by-1);     obj.oT.To=Vector2.new(bx+bw+1,by-1);     obj.oT.Color=oc;obj.oT.Thickness=ot;obj.oT.Visible=true
-            obj.oB.From=Vector2.new(bx-1,by+bh+1);  obj.oB.To=Vector2.new(bx+bw+1,by+bh+1);  obj.oB.Color=oc;obj.oB.Thickness=ot;obj.oB.Visible=true
-            obj.oL.From=Vector2.new(bx-1,by-1);     obj.oL.To=Vector2.new(bx-1,by+bh+1);     obj.oL.Color=oc;obj.oL.Thickness=ot;obj.oL.Visible=true
-            obj.oR.From=Vector2.new(bx+bw+1,by-1);  obj.oR.To=Vector2.new(bx+bw+1,by+bh+1);  obj.oR.Color=oc;obj.oR.Thickness=ot;obj.oR.Visible=true
+        -- ── FULL BOX ──
+        if espCfg.box and not espCfg.corners then
+            -- Shadow outline
+            setLine(obj.oT, bx-1,   by-1,   bx+bw+1, by-1,   espCfg.outlineColor, oT)
+            setLine(obj.oB, bx-1,   by+bh+1,bx+bw+1, by+bh+1,espCfg.outlineColor, oT)
+            setLine(obj.oL, bx-1,   by-1,   bx-1,    by+bh+1,espCfg.outlineColor, oT)
+            setLine(obj.oR, bx+bw+1,by-1,   bx+bw+1, by+bh+1,espCfg.outlineColor, oT)
             -- Box
-            obj.bT.From=Vector2.new(bx,by);     obj.bT.To=Vector2.new(bx+bw,by);     obj.bT.Color=boxCol;obj.bT.Thickness=bThick;obj.bT.Visible=true
-            obj.bB.From=Vector2.new(bx,by+bh);  obj.bB.To=Vector2.new(bx+bw,by+bh);  obj.bB.Color=boxCol;obj.bB.Thickness=bThick;obj.bB.Visible=true
-            obj.bL.From=Vector2.new(bx,by);     obj.bL.To=Vector2.new(bx,by+bh);     obj.bL.Color=boxCol;obj.bL.Thickness=bThick;obj.bL.Visible=true
-            obj.bR.From=Vector2.new(bx+bw,by);  obj.bR.To=Vector2.new(bx+bw,by+bh);  obj.bR.Color=boxCol;obj.bR.Thickness=bThick;obj.bR.Visible=true
-        else
+            setLine(obj.bT, bx,   by,   bx+bw, by,    boxCol, bT)
+            setLine(obj.bB, bx,   by+bh,bx+bw, by+bh, boxCol, bT)
+            setLine(obj.bL, bx,   by,   bx,    by+bh, boxCol, bT)
+            setLine(obj.bR, bx+bw,by,   bx+bw, by+bh, boxCol, bT)
+            -- Hide corners
+            obj.cTLh.Visible=false;obj.cTLv.Visible=false;obj.cTRh.Visible=false;obj.cTRv.Visible=false
+            obj.cBLh.Visible=false;obj.cBLv.Visible=false;obj.cBRh.Visible=false;obj.cBRv.Visible=false
+            obj.cTLho.Visible=false;obj.cTLvo.Visible=false;obj.cTRho.Visible=false;obj.cTRvo.Visible=false
+            obj.cBLho.Visible=false;obj.cBLvo.Visible=false;obj.cBRho.Visible=false;obj.cBRvo.Visible=false
+        elseif espCfg.corners then
+            -- ── CORNER BRACKET BOX ──
+            -- Hide full box lines
             obj.bT.Visible=false;obj.bB.Visible=false;obj.bL.Visible=false;obj.bR.Visible=false
             obj.oT.Visible=false;obj.oB.Visible=false;obj.oL.Visible=false;obj.oR.Visible=false
+
+            local cl = math.floor(math.min(bw, bh) * espCfg.cornerLength)
+
+            -- Outline corners (drawn first, behind)
+            setLine(obj.cTLho, bx-1,    by-1,    bx+cl+1, by-1,    espCfg.outlineColor, oT)
+            setLine(obj.cTLvo, bx-1,    by-1,    bx-1,    by+cl+1, espCfg.outlineColor, oT)
+            setLine(obj.cTRho, bx+bw-cl-1,by-1,  bx+bw+1, by-1,   espCfg.outlineColor, oT)
+            setLine(obj.cTRvo, bx+bw+1, by-1,    bx+bw+1, by+cl+1, espCfg.outlineColor, oT)
+            setLine(obj.cBLho, bx-1,    by+bh+1, bx+cl+1, by+bh+1, espCfg.outlineColor, oT)
+            setLine(obj.cBLvo, bx-1,    by+bh-cl-1,bx-1,  by+bh+1, espCfg.outlineColor, oT)
+            setLine(obj.cBRho, bx+bw-cl-1,by+bh+1,bx+bw+1,by+bh+1,espCfg.outlineColor, oT)
+            setLine(obj.cBRvo, bx+bw+1, by+bh-cl-1,bx+bw+1,by+bh+1,espCfg.outlineColor,oT)
+
+            -- Corner brackets (on top)
+            setLine(obj.cTLh, bx,      by,      bx+cl,   by,      boxCol, bT)
+            setLine(obj.cTLv, bx,      by,      bx,      by+cl,   boxCol, bT)
+            setLine(obj.cTRh, bx+bw-cl,by,      bx+bw,   by,      boxCol, bT)
+            setLine(obj.cTRv, bx+bw,   by,      bx+bw,   by+cl,   boxCol, bT)
+            setLine(obj.cBLh, bx,      by+bh,   bx+cl,   by+bh,   boxCol, bT)
+            setLine(obj.cBLv, bx,      by+bh-cl,bx,      by+bh,   boxCol, bT)
+            setLine(obj.cBRh, bx+bw-cl,by+bh,   bx+bw,   by+bh,   boxCol, bT)
+            setLine(obj.cBRv, bx+bw,   by+bh-cl,bx+bw,   by+bh,   boxCol, bT)
+        else
+            -- Box + corners both off
+            obj.bT.Visible=false;obj.bB.Visible=false;obj.bL.Visible=false;obj.bR.Visible=false
+            obj.oT.Visible=false;obj.oB.Visible=false;obj.oL.Visible=false;obj.oR.Visible=false
+            obj.cTLh.Visible=false;obj.cTLv.Visible=false;obj.cTRh.Visible=false;obj.cTRv.Visible=false
+            obj.cBLh.Visible=false;obj.cBLv.Visible=false;obj.cBRh.Visible=false;obj.cBRv.Visible=false
+            obj.cTLho.Visible=false;obj.cTLvo.Visible=false;obj.cTRho.Visible=false;obj.cTRvo.Visible=false
+            obj.cBLho.Visible=false;obj.cBLvo.Visible=false;obj.cBRho.Visible=false;obj.cBRvo.Visible=false
         end
 
         -- ── FILL ──
         if espCfg.fill then
-            obj.fill.Position=Vector2.new(bx,by);obj.fill.Size=Vector2.new(bw,bh)
-            obj.fill.Color=espCfg.fillColor;obj.fill.Transparency=espCfg.fillTransparency
-            obj.fill.Visible=true
-        else obj.fill.Visible=false end
+            obj.fill.Position    = Vector2.new(bx, by)
+            obj.fill.Size        = Vector2.new(bw, bh)
+            obj.fill.Color       = espCfg.fillColor
+            obj.fill.Transparency= espCfg.fillTrans
+            obj.fill.Visible     = true
+        else
+            obj.fill.Visible = false
+        end
 
         -- ── SKELETON ──
         if espCfg.skeleton then
-            local isR6    = char:FindFirstChild("Torso") ~= nil
-            local boneDef = isR6 and SKELETON_R6 or SKELETON_R15
-            for i, boneNames in ipairs(boneDef) do
-                local pA  = char:FindFirstChild(boneNames[1])
-                local pB  = char:FindFirstChild(boneNames[2])
+            local isR6  = char:FindFirstChild("Torso") ~= nil
+            local bDefs = isR6 and SKEL_R6 or SKEL_R15
+            for i, bdef in ipairs(bDefs) do
+                local pA  = char:FindFirstChild(bdef[1])
+                local pB  = char:FindFirstChild(bdef[2])
                 local ln  = obj.bones[i]
                 if pA and pB and ln then
                     local spA, onA = cam:WorldToViewportPoint(pA.Position)
                     local spB, onB = cam:WorldToViewportPoint(pB.Position)
                     if onA and onB and spA.Z > 0 and spB.Z > 0 then
-                        ln.From=Vector2.new(spA.X,spA.Y); ln.To=Vector2.new(spB.X,spB.Y)
-                        ln.Color=espCfg.skeletonColor; ln.Thickness=espCfg.skelThick
-                        ln.Visible=true
-                    else ln.Visible=false end
-                elseif ln then ln.Visible=false end
+                        ln.From      = Vector2.new(spA.X, spA.Y)
+                        ln.To        = Vector2.new(spB.X, spB.Y)
+                        ln.Color     = espCfg.skelColor
+                        ln.Thickness = espCfg.skelThick
+                        ln.Visible   = true
+                    else
+                        ln.Visible = false
+                    end
+                elseif ln then
+                    ln.Visible = false
+                end
             end
-            -- Hide unused bone lines
-            for i=#boneDef+1, MAX_BONES do
-                if obj.bones[i] then obj.bones[i].Visible=false end
+            for i = #bDefs+1, MAX_BONES do
+                if obj.bones[i] then obj.bones[i].Visible = false end
             end
         else
-            for _,bone in ipairs(obj.bones) do bone.Visible=false end
+            for _, bone in ipairs(obj.bones) do bone.Visible = false end
         end
 
         -- ── NAME ──
-        -- Positioned above box, always visible
+        -- Smooth Y: sits just above the top of the box
         if espCfg.name then
-            local nameY = by - espCfg.nameSize - 3
             obj.nameTag.Text     = p.DisplayName ~= "" and p.DisplayName or p.Name
             obj.nameTag.Size     = espCfg.nameSize
             obj.nameTag.Color    = espCfg.nameColor
-            obj.nameTag.Position = Vector2.new(bx+bw/2, nameY)
+            obj.nameTag.Position = Vector2.new(bx+bw/2, by - espCfg.nameSize - 4)
             obj.nameTag.Visible  = true
-        else obj.nameTag.Visible=false end
+        else
+            obj.nameTag.Visible = false
+        end
 
         -- ── WEAPON ──
         if espCfg.weapon then
-            local nameOff = espCfg.name and espCfg.nameSize+2 or 0
+            local nameOff = espCfg.name and (espCfg.nameSize + 2) or 0
             obj.weaponTag.Text     = "["..getWeapon(char).."]"
             obj.weaponTag.Size     = espCfg.weaponSize
             obj.weaponTag.Color    = espCfg.weaponColor
-            obj.weaponTag.Position = Vector2.new(bx+bw/2, by - espCfg.weaponSize - 3 - nameOff)
+            obj.weaponTag.Position = Vector2.new(bx+bw/2, by - espCfg.weaponSize - 4 - nameOff)
             obj.weaponTag.Visible  = true
-        else obj.weaponTag.Visible=false end
+        else
+            obj.weaponTag.Visible = false
+        end
 
         -- ── DISTANCE ──
         if espCfg.distance then
             obj.distTag.Text     = math.floor(dist).."m"
             obj.distTag.Size     = espCfg.distSize
             obj.distTag.Color    = espCfg.distColor
-            obj.distTag.Position = Vector2.new(bx+bw/2, by+bh+3)
+            obj.distTag.Position = Vector2.new(bx+bw/2, by+bh+4)
             obj.distTag.Visible  = true
-        else obj.distTag.Visible=false end
+        else
+            obj.distTag.Visible = false
+        end
 
         -- ── HEALTH BAR ──
         if espCfg.healthBar then
-            local hp  = math.clamp(hum.Health,0,hum.MaxHealth)
-            local pct = hum.MaxHealth>0 and hp/hum.MaxHealth or 0
+            local hp  = math.clamp(hum.Health, 0, hum.MaxHealth)
+            local pct = hum.MaxHealth > 0 and (hp/hum.MaxHealth) or 0
             local hc  = getHPColor(pct)
-            local bW  = espCfg.hpWidth
-            local bO  = espCfg.hpOffset
+            local bW  = espCfg.hpBarWidth
+            local bO  = espCfg.hpBarOffset
             local s   = espCfg.healthBarStyle
 
-            local bgF,bgT,fgF,fgT
+            local bgF, bgT, fgF, fgT
 
-            if s=="Left" then
+            if s == "Left" then
                 local x = bx - bO - bW
-                bgF=Vector2.new(x,by);         bgT=Vector2.new(x,by+bh)
-                fgF=Vector2.new(x,by+bh);      fgT=Vector2.new(x,by+bh-bh*pct)
-            elseif s=="Right" then
+                bgF=Vector2.new(x,by);       bgT=Vector2.new(x,by+bh)
+                fgF=Vector2.new(x,by+bh);    fgT=Vector2.new(x, by+bh - bh*pct)
+            elseif s == "Right" then
                 local x = bx+bw+bO+bW
-                bgF=Vector2.new(x,by);         bgT=Vector2.new(x,by+bh)
-                fgF=Vector2.new(x,by+bh);      fgT=Vector2.new(x,by+bh-bh*pct)
-            elseif s=="Bottom" then
+                bgF=Vector2.new(x,by);       bgT=Vector2.new(x,by+bh)
+                fgF=Vector2.new(x,by+bh);    fgT=Vector2.new(x, by+bh - bh*pct)
+            elseif s == "Bottom" then
                 local y = by+bh+bO+bW
-                bgF=Vector2.new(bx,y);         bgT=Vector2.new(bx+bw,y)
-                fgF=Vector2.new(bx,y);         fgT=Vector2.new(bx+bw*pct,y)
+                bgF=Vector2.new(bx,y);       bgT=Vector2.new(bx+bw,y)
+                fgF=Vector2.new(bx,y);       fgT=Vector2.new(bx+bw*pct, y)
             else -- Top
                 local y = by-bO-bW
-                bgF=Vector2.new(bx,y);         bgT=Vector2.new(bx+bw,y)
-                fgF=Vector2.new(bx,y);         fgT=Vector2.new(bx+bw*pct,y)
+                bgF=Vector2.new(bx,y);       bgT=Vector2.new(bx+bw,y)
+                fgF=Vector2.new(bx,y);       fgT=Vector2.new(bx+bw*pct, y)
             end
 
-            obj.hpBg.From=bgF;obj.hpBg.To=bgT;obj.hpBg.Thickness=bW+2;obj.hpBg.Color=Color3.new(0,0,0);obj.hpBg.Visible=true
-            obj.hpFg.From=fgF;obj.hpFg.To=fgT;obj.hpFg.Thickness=bW;  obj.hpFg.Color=hc;            obj.hpFg.Visible=true
-        else obj.hpBg.Visible=false;obj.hpFg.Visible=false end
+            obj.hpBg.From=bgF; obj.hpBg.To=bgT; obj.hpBg.Thickness=bW+2; obj.hpBg.Color=Color3.new(0,0,0); obj.hpBg.Visible=true
+            obj.hpFg.From=fgF; obj.hpFg.To=fgT; obj.hpFg.Thickness=bW;   obj.hpFg.Color=hc;                obj.hpFg.Visible=true
+        else
+            obj.hpBg.Visible = false
+            obj.hpFg.Visible = false
+        end
     end
 
-    -- Clean up pool entries for players who left
+    -- ── CLEANUP ──
+    -- Remove pool entries for players who left
+    -- Uses the valid set built this frame — correct fix
     for p in pairs(espPool) do
-        if not p.Parent then destroyESPForPlayer(p) end
+        if not espValidSet[p] then
+            destroyESPObjects(p)
+        end
     end
 end
+
+-- Cleanup when player leaves
+Players.PlayerRemoving:Connect(function(p)
+    destroyESPObjects(p)
+end)
 
 -- =============================================
 --   ESP UI
@@ -1301,56 +1428,65 @@ end
 ESPDisplayTab:AddToggle("ESPEnabled",{Text="Enable ESP",Default=false,Callback=function(v)
     espCfg.enabled=v
     if v then
-        -- Eagerly create pool for all current players
         for _,p in ipairs(Players:GetPlayers()) do
-            if p~=lp then createESPForPlayer(p) end
+            if p~=lp then createESPObjects(p) end
         end
     else
-        for _,obj in pairs(espPool) do hideESP(obj) end
+        for _,obj in pairs(espPool) do hideObj(obj) end
     end
     Library:Notify(v and "ESP Active!" or "ESP Off",2)
 end})
+
 ESPDisplayTab:AddDivider()
 ESPDisplayTab:AddLabel("── Player Display Options ──")
-ESPDisplayTab:AddToggle("ESPBox",{Text="Box",Default=false,Tooltip="Bounding box around players",Callback=function(v)espCfg.box=v end})
-ESPDisplayTab:AddToggle("ESPFill",{Text="Fill",Default=false,Tooltip="Background fill inside box",Callback=function(v)espCfg.fill=v end})
+ESPDisplayTab:AddToggle("ESPBox",{Text="Box",Default=false,Tooltip="Full bounding box",Callback=function(v)espCfg.box=v;if v then espCfg.corners=false end end})
+ESPDisplayTab:AddToggle("ESPCorners",{Text="Corner Brackets",Default=false,Tooltip="Corner bracket style (replaces Box)",Callback=function(v)espCfg.corners=v;if v then espCfg.box=false end end})
+ESPDisplayTab:AddToggle("ESPFill",{Text="Fill",Default=false,Tooltip="Transparent fill inside box",Callback=function(v)espCfg.fill=v end})
 ESPDisplayTab:AddToggle("ESPSkeleton",{Text="Skeleton",Default=false,Tooltip="Bone structure",Callback=function(v)espCfg.skeleton=v end})
-ESPDisplayTab:AddToggle("ESPName",{Text="Name",Default=false,Tooltip="Player name tag",Callback=function(v)espCfg.name=v end})
-ESPDisplayTab:AddToggle("ESPWeapon",{Text="Weapon",Default=false,Tooltip="Currently equipped weapon",Callback=function(v)espCfg.weapon=v end})
-ESPDisplayTab:AddToggle("ESPDistance",{Text="Distance",Default=false,Tooltip="Distance in studs",Callback=function(v)espCfg.distance=v end})
-ESPDisplayTab:AddToggle("ESPHealthBar",{Text="Health Bar",Default=false,Tooltip="Health indicator",Callback=function(v)espCfg.healthBar=v end})
-ESPDisplayTab:AddToggle("ESPResizeOutline",{Text="Resize Outline",Default=false,Tooltip="Outline scales with distance",Callback=function(v)espCfg.resizeOutline=v end})
+ESPDisplayTab:AddToggle("ESPName",{Text="Name",Default=false,Tooltip="Player name above box",Callback=function(v)espCfg.name=v end})
+ESPDisplayTab:AddToggle("ESPWeapon",{Text="Weapon",Default=false,Tooltip="Currently held weapon",Callback=function(v)espCfg.weapon=v end})
+ESPDisplayTab:AddToggle("ESPDistance",{Text="Distance",Default=false,Tooltip="Distance in metres",Callback=function(v)espCfg.distance=v end})
+ESPDisplayTab:AddToggle("ESPHealthBar",{Text="Health Bar",Default=false,Tooltip="HP indicator",Callback=function(v)espCfg.healthBar=v end})
+ESPDisplayTab:AddToggle("ESPResizeOutline",{Text="Resize Outline",Default=false,Tooltip="Thicker outline when close",Callback=function(v)espCfg.resizeOutline=v end})
+
 ESPDisplayTab:AddDivider()
 ESPDisplayTab:AddLabel("── Sizing ──")
-ESPDisplayTab:AddSlider("ESPBoxThickness",{Text="Box Thickness",Default=1,Min=1,Max=5,Rounding=0,Suffix="px",Callback=function(v)espCfg.boxThick=v end})
+ESPDisplayTab:AddSlider("ESPBoxThick",{Text="Box Thickness",Default=1,Min=1,Max=5,Rounding=0,Suffix="px",Callback=function(v)espCfg.boxThick=v end})
 ESPDisplayTab:AddSlider("ESPSkelThick",{Text="Skeleton Thickness",Default=1,Min=1,Max=5,Rounding=0,Suffix="px",Callback=function(v)espCfg.skelThick=v end})
 ESPDisplayTab:AddSlider("ESPNameSize",{Text="Name Size",Default=13,Min=8,Max=24,Rounding=0,Suffix="px",Callback=function(v)espCfg.nameSize=v end})
 ESPDisplayTab:AddSlider("ESPWeaponSize",{Text="Weapon Size",Default=11,Min=8,Max=20,Rounding=0,Suffix="px",Callback=function(v)espCfg.weaponSize=v end})
 ESPDisplayTab:AddSlider("ESPDistSize",{Text="Distance Size",Default=11,Min=8,Max=20,Rounding=0,Suffix="px",Callback=function(v)espCfg.distSize=v end})
-ESPDisplayTab:AddSlider("ESPFillTrans",{Text="Fill Transparency",Default=70,Min=0,Max=99,Rounding=0,Suffix="%",Callback=function(v)espCfg.fillTransparency=v/100 end})
+ESPDisplayTab:AddSlider("ESPFillTrans",{Text="Fill Transparency",Default=75,Min=10,Max=99,Rounding=0,Suffix="%",Callback=function(v)espCfg.fillTrans=v/100 end})
+ESPDisplayTab:AddSlider("ESPCornerLen",{Text="Corner Length",Default=25,Min=10,Max=50,Rounding=0,Suffix="%",Callback=function(v)espCfg.cornerLength=v/100 end})
 
-ESPHealthTab:AddDivider();ESPHealthTab:AddLabel("── Health Bar Settings ──")
-ESPHealthTab:AddDropdown("ESPHealthBarStyle",{Text="Health Bar Style",Values={"Left","Right","Bottom","Top"},Default=1,Multi=false,Callback=function(v)espCfg.healthBarStyle=v end})
-ESPHealthTab:AddToggle("ESPHealthGradient",{Text="Health Bar Gradient",Default=false,Tooltip="Green=High | Yellow=Medium | Red=Low",Callback=function(v)espCfg.healthBarGradient=v end})
-ESPHealthTab:AddDivider();ESPHealthTab:AddLabel("Gradient:\nGreen  = High Health\nYellow = Medium\nRed    = Low Health",true)
-ESPHealthTab:AddDivider();ESPHealthTab:AddLabel("── Bar Size ──")
-ESPHealthTab:AddSlider("ESPHPWidth",{Text="Bar Width",Default=3,Min=1,Max=12,Rounding=0,Suffix="px",Callback=function(v)espCfg.hpWidth=v end})
-ESPHealthTab:AddSlider("ESPHPOffset",{Text="Bar Offset",Default=5,Min=1,Max=20,Rounding=0,Suffix="px",Callback=function(v)espCfg.hpOffset=v end})
+ESPHealthTab:AddDivider()
+ESPHealthTab:AddLabel("── Health Bar Settings ──")
+ESPHealthTab:AddDropdown("ESPHPStyle",{Text="Health Bar Style",Values={"Left","Right","Bottom","Top"},Default=1,Multi=false,Callback=function(v)espCfg.healthBarStyle=v end})
+ESPHealthTab:AddToggle("ESPHPGradient",{Text="Health Bar Gradient",Default=false,Tooltip="Green → Yellow → Red",Callback=function(v)espCfg.healthBarGradient=v end})
+ESPHealthTab:AddDivider()
+ESPHealthTab:AddLabel("Gradient:\nGreen  = Full Health\nYellow = Half Health\nRed    = Low Health",true)
+ESPHealthTab:AddDivider()
+ESPHealthTab:AddLabel("── Bar Size ──")
+ESPHealthTab:AddSlider("ESPHPWidth",{Text="Bar Width",Default=3,Min=1,Max=10,Rounding=0,Suffix="px",Callback=function(v)espCfg.hpBarWidth=v end})
+ESPHealthTab:AddSlider("ESPHPOffset",{Text="Bar Offset",Default=5,Min=1,Max=20,Rounding=0,Suffix="px",Callback=function(v)espCfg.hpBarOffset=v end})
 
-ESPColorsTab:AddDivider();ESPColorsTab:AddLabel("── Box Colors ──")
-ESPColorsTab:AddLabel("Enemy Box"):AddColorPicker("ESPBoxColorEnemy",{Default=Color3.fromRGB(255,60,60),Title="Enemy Box Color",Callback=function(v)espCfg.boxColorEnemy=v end})
-ESPColorsTab:AddLabel("Visible Box"):AddColorPicker("ESPBoxColorVisible",{Default=Color3.fromRGB(60,255,60),Title="Visible Box Color",Callback=function(v)espCfg.boxColorVisible=v end})
-ESPColorsTab:AddLabel("Outline"):AddColorPicker("ESPOutlineColor",{Default=Color3.fromRGB(0,0,0),Title="Outline Color",Callback=function(v)espCfg.outlineColor=v end})
-ESPColorsTab:AddDivider();ESPColorsTab:AddLabel("── Element Colors ──")
-ESPColorsTab:AddLabel("Fill"):AddColorPicker("ESPFillColor",{Default=Color3.fromRGB(255,255,255),Title="Fill Color",Callback=function(v)espCfg.fillColor=v end})
-ESPColorsTab:AddLabel("Skeleton"):AddColorPicker("ESPSkeletonColor",{Default=Color3.fromRGB(255,255,0),Title="Skeleton Color",Callback=function(v)espCfg.skeletonColor=v end})
-ESPColorsTab:AddLabel("Name"):AddColorPicker("ESPNameColor",{Default=Color3.fromRGB(255,255,255),Title="Name Color",Callback=function(v)espCfg.nameColor=v end})
-ESPColorsTab:AddLabel("Weapon"):AddColorPicker("ESPWeaponColor",{Default=Color3.fromRGB(180,180,255),Title="Weapon Color",Callback=function(v)espCfg.weaponColor=v end})
-ESPColorsTab:AddLabel("Distance"):AddColorPicker("ESPDistColor",{Default=Color3.fromRGB(200,200,200),Title="Distance Color",Callback=function(v)espCfg.distColor=v end})
+ESPColorsTab:AddDivider()
+ESPColorsTab:AddLabel("── Box Colors ──")
+ESPColorsTab:AddLabel("Enemy (not visible)"):AddColorPicker("ESPColEnemy",{Default=Color3.fromRGB(255,60,60),Title="Enemy Color",Callback=function(v)espCfg.boxEnemy=v end})
+ESPColorsTab:AddLabel("Visible (line of sight)"):AddColorPicker("ESPColVisible",{Default=Color3.fromRGB(60,220,60),Title="Visible Color",Callback=function(v)espCfg.boxVisible=v end})
+ESPColorsTab:AddLabel("Outline"):AddColorPicker("ESPColOutline",{Default=Color3.fromRGB(0,0,0),Title="Outline Color",Callback=function(v)espCfg.outlineColor=v end})
+ESPColorsTab:AddDivider()
+ESPColorsTab:AddLabel("── Element Colors ──")
+ESPColorsTab:AddLabel("Fill"):AddColorPicker("ESPColFill",{Default=Color3.fromRGB(255,255,255),Title="Fill Color",Callback=function(v)espCfg.fillColor=v end})
+ESPColorsTab:AddLabel("Skeleton"):AddColorPicker("ESPColSkel",{Default=Color3.fromRGB(255,220,0),Title="Skeleton Color",Callback=function(v)espCfg.skelColor=v end})
+ESPColorsTab:AddLabel("Name"):AddColorPicker("ESPColName",{Default=Color3.fromRGB(255,255,255),Title="Name Color",Callback=function(v)espCfg.nameColor=v end})
+ESPColorsTab:AddLabel("Weapon"):AddColorPicker("ESPColWeapon",{Default=Color3.fromRGB(160,160,255),Title="Weapon Color",Callback=function(v)espCfg.weaponColor=v end})
+ESPColorsTab:AddLabel("Distance"):AddColorPicker("ESPColDist",{Default=Color3.fromRGB(180,180,180),Title="Distance Color",Callback=function(v)espCfg.distColor=v end})
 
-ESPFiltersTab:AddDivider();ESPFiltersTab:AddLabel("── ESP Filters ──")
+ESPFiltersTab:AddDivider()
+ESPFiltersTab:AddLabel("── ESP Filters ──")
 ESPFiltersTab:AddToggle("ESPTeamCheck",{Text="Team Check",Default=false,Tooltip="Hide teammates",Callback=function(v)espCfg.teamCheck=v end})
-ESPFiltersTab:AddToggle("ESPVisibleOnly",{Text="Visible Only",Default=false,Tooltip="Only show players in LOS",Callback=function(v)espCfg.visibleOnly=v end})
+ESPFiltersTab:AddToggle("ESPVisibleOnly",{Text="Visible Only",Default=false,Tooltip="Only show players you can see",Callback=function(v)espCfg.visibleOnly=v end})
 ESPFiltersTab:AddSlider("ESPMaxDist",{Text="Max Distance",Default=1000,Min=50,Max=5000,Rounding=0,Suffix="m",Callback=function(v)espCfg.maxDist=v end})
 
 -- =============================================
@@ -1360,23 +1496,22 @@ ESPFiltersTab:AddSlider("ESPMaxDist",{Text="Max Distance",Default=1000,Min=50,Ma
 local CamLeft  = Tabs.Camera:AddLeftGroupbox("Camera Settings")
 local CamRight = Tabs.Camera:AddRightGroupbox("Viewmodel & Sensitivity")
 
-local camConns = {fov=nil,shake=nil,sway=nil,bob=nil,jump=nil,slide=nil,cross=nil,sens=nil,vm=nil}
-
-local function makeCamToggle(key, tab, text, fn)
-    tab:AddToggle(key,{Text=text,Default=false,Callback=function(v)
-        if camConns[fn] then camConns[fn]:Disconnect();camConns[fn]=nil end
-        if v then camConns[fn]=RunService.RenderStepped:Connect(function()pcall(fn)end)
-        else pcall(fn.stop or function()end) end
-    end})
-end
-
 local fovChangerConn=nil
 CamLeft:AddToggle("FOVChangerEnabled",{Text="Enable FOV Changer",Default=false,Callback=function(v)
     if fovChangerConn then fovChangerConn:Disconnect();fovChangerConn=nil end
-    if v then fovChangerConn=RunService.RenderStepped:Connect(function()pcall(function()if CameraController then CameraController._base_fov=Options.FOVValue.Value end end)end)
-    else pcall(function()if CameraController then CameraController._base_fov=80;ws.CurrentCamera.FieldOfView=80 end end) end
+    if v then
+        fovChangerConn=RunService.RenderStepped:Connect(function()
+            pcall(function()if CameraController then CameraController._base_fov=Options.FOVValue.Value end end)
+        end)
+    else
+        pcall(function()if CameraController then CameraController._base_fov=80;ws.CurrentCamera.FieldOfView=80 end end)
+    end
 end})
-CamLeft:AddSlider("FOVValue",{Text="FOV Value",Default=80,Min=30,Max=120,Rounding=0,Callback=function(v)if Toggles.FOVChangerEnabled and Toggles.FOVChangerEnabled.Value then pcall(function()if CameraController then CameraController._base_fov=v end end)end end})
+CamLeft:AddSlider("FOVValue",{Text="FOV Value",Default=80,Min=30,Max=120,Rounding=0,Callback=function(v)
+    if Toggles.FOVChangerEnabled and Toggles.FOVChangerEnabled.Value then
+        pcall(function()if CameraController then CameraController._base_fov=v end end)
+    end
+end})
 
 local noShakeConn=nil
 CamLeft:AddToggle("NoShake",{Text="No Camera Shake",Default=false,Callback=function(v)
@@ -1413,14 +1548,24 @@ local crossConn=nil
 CamLeft:AddToggle("ForceCrosshair",{Text="Force Crosshair",Default=false,Callback=function(v)
     if crossConn then crossConn:Disconnect();crossConn=nil end
     if v then crossConn=RunService.RenderStepped:Connect(function()pcall(function()if CameraController then CameraController._crosshair_disabled=false end end)end)
-    else pcall(function()if CameraController then CameraController:_UpdateSettings()end end) end
+    else pcall(function()if CameraController then CameraController:_UpdateSettings() end end) end
 end})
 
 local sensConn=nil
 CamRight:AddToggle("SensOverride",{Text="Override Sensitivity",Default=false,Callback=function(v)
     if sensConn then sensConn:Disconnect();sensConn=nil end
-    if v then sensConn=RunService.RenderStepped:Connect(function()pcall(function()if not CameraController then return end;CameraController._camera_sensitivity=Options.SensValue.Value/100;CameraController._camera_sensitivity_ads_multiplier=Options.SensADS.Value/100;CameraController._camera_sensitivity_ads_multiplier_scoped=Options.SensScoped.Value/100;CameraController._camera_sensitivity_x=Options.SensX.Value/100;CameraController._camera_sensitivity_y=Options.SensY.Value/100 end)end)
-    else pcall(function()if CameraController then CameraController:_UpdateSettings()end end) end
+    if v then
+        sensConn=RunService.RenderStepped:Connect(function()
+            pcall(function()
+                if not CameraController then return end
+                CameraController._camera_sensitivity=Options.SensValue.Value/100
+                CameraController._camera_sensitivity_ads_multiplier=Options.SensADS.Value/100
+                CameraController._camera_sensitivity_ads_multiplier_scoped=Options.SensScoped.Value/100
+                CameraController._camera_sensitivity_x=Options.SensX.Value/100
+                CameraController._camera_sensitivity_y=Options.SensY.Value/100
+            end)
+        end)
+    else pcall(function()if CameraController then CameraController:_UpdateSettings() end end) end
 end})
 CamRight:AddSlider("SensValue",{Text="Sensitivity",Default=100,Min=1,Max=500,Rounding=0,Suffix="%",Callback=function(_)end})
 CamRight:AddSlider("SensADS",{Text="ADS Sensitivity",Default=100,Min=1,Max=500,Rounding=0,Suffix="%",Callback=function(_)end})
@@ -1429,10 +1574,13 @@ CamRight:AddSlider("SensX",{Text="Sensitivity X",Default=100,Min=1,Max=500,Round
 CamRight:AddSlider("SensY",{Text="Sensitivity Y",Default=100,Min=1,Max=500,Rounding=0,Suffix="%",Callback=function(_)end})
 CamRight:AddDivider()
 
-local vmConn=nil; local vmCfg={x=0,y=0,z=0}
+local vmConn=nil;local vmCfg={x=0,y=0,z=0}
 CamRight:AddToggle("ViewmodelEnabled",{Text="Custom Viewmodel Position",Default=false,Callback=function(v)
     if vmConn then vmConn:Disconnect();vmConn=nil end
-    if v then vmConn=RunService.RenderStepped:Connect(function()pcall(function()if CameraController then CameraController.ViewModelOffsetCFrame=CFrame.new(vmCfg.x,vmCfg.y,vmCfg.z)end end)end)
+    if v then
+        vmConn=RunService.RenderStepped:Connect(function()
+            pcall(function()if CameraController then CameraController.ViewModelOffsetCFrame=CFrame.new(vmCfg.x,vmCfg.y,vmCfg.z) end end)
+        end)
     else pcall(function()if CameraController then CameraController.ViewModelOffsetCFrame=CFrame.identity end end) end
 end})
 CamRight:AddSlider("ViewmodelX",{Text="X Offset",Default=0,Min=-5,Max=5,Rounding=1,Callback=function(v)vmCfg.x=v end})
@@ -1453,21 +1601,20 @@ LoadoutTab:AddDropdown("LoadoutPrimary",{Text="Primary",Values=PRIMARY_WEAPONS,D
 LoadoutTab:AddDropdown("LoadoutSecondary",{Text="Secondary",Values=SECONDARY_WEAPONS,Default=1,Multi=false,Searchable=true,Callback=function(v)loadoutCfg.secondary=v end})
 LoadoutTab:AddDropdown("LoadoutMelee",{Text="Melee",Values=MELEE_WEAPONS,Default=1,Multi=false,Searchable=true,Callback=function(v)loadoutCfg.melee=v end})
 LoadoutTab:AddDropdown("LoadoutUtility",{Text="Utility",Values=UTILITY_WEAPONS,Default=1,Multi=false,Searchable=true,Callback=function(v)loadoutCfg.utility=v end})
-LoadoutTab:AddButton({Text="Apply Loadout",Func=function()pcall(function()if PickWeaponsRemote then PickWeaponsRemote:FireServer({loadoutCfg.primary,loadoutCfg.secondary,loadoutCfg.melee,loadoutCfg.utility});Library:Notify("Loadout applied!",2)end end)end})
+LoadoutTab:AddButton({Text="Apply Loadout",Func=function()pcall(function()if PickWeaponsRemote then PickWeaponsRemote:FireServer({loadoutCfg.primary,loadoutCfg.secondary,loadoutCfg.melee,loadoutCfg.utility});Library:Notify("Loadout applied!",2) end end)end})
 LoadoutTab:AddToggle("AutoApplyLoadout",{Text="Auto Apply On Spawn",Default=false,Callback=function(_)end})
 lp.CharacterAdded:Connect(function()
     if Toggles.AutoApplyLoadout and Toggles.AutoApplyLoadout.Value then
         task.wait(1)
-        pcall(function()if PickWeaponsRemote then PickWeaponsRemote:FireServer({loadoutCfg.primary,loadoutCfg.secondary,loadoutCfg.melee,loadoutCfg.utility})end end)
+        pcall(function()if PickWeaponsRemote then PickWeaponsRemote:FireServer({loadoutCfg.primary,loadoutCfg.secondary,loadoutCfg.melee,loadoutCfg.utility}) end end)
     end
 end)
 
 QueueTab:AddDropdown("QueueMode",{Text="Queue Mode",Values=QUEUE_MODES,Default=1,Multi=false,Callback=function(_)end})
-QueueTab:AddButton({Text="Join Queue",Func=function()pcall(function()if QueueRemote then QueueRemote:InvokeServer(Options.QueueMode.Value);Library:Notify("Joined queue!",2)end end)end})
+QueueTab:AddButton({Text="Join Queue",Func=function()pcall(function()if QueueRemote then QueueRemote:InvokeServer(Options.QueueMode.Value);Library:Notify("Joined queue!",2) end end)end})
 
 MiscRight:AddDropdown("VoteMap",{Text="Select Map",Values=MAPS,Default=1,Multi=false,Searchable=true,Callback=function(_)end})
-MiscRight:AddButton({Text="Vote Map",Func=function()pcall(function()if VoteRemote then VoteRemote:FireServer(Options.VoteMap.Value);Library:Notify("Voted for "..Options.VoteMap.Value.."!",2)end end)end})
-
+MiscRight:AddButton({Text="Vote Map",Func=function()pcall(function()if VoteRemote then VoteRemote:FireServer(Options.VoteMap.Value);Library:Notify("Voted!",2) end end)end})
 local autoVoteActive=false
 MiscRight:AddToggle("AutoVote",{Text="Auto Vote",Default=false,Callback=function(v)
     autoVoteActive=false;task.wait(0.1)
@@ -1475,8 +1622,8 @@ MiscRight:AddToggle("AutoVote",{Text="Auto Vote",Default=false,Callback=function
         autoVoteActive=true
         task.spawn(function()
             while autoVoteActive do
-                pcall(function()if VoteRemote then VoteRemote:FireServer(Options.VoteMap.Value)end end)
-                local e=0;while e<2 and autoVoteActive do task.wait(0.1);e=e+0.1 end
+                pcall(function()if VoteRemote then VoteRemote:FireServer(Options.VoteMap.Value) end end)
+                local e=0;while e<2 and autoVoteActive do task.wait(0.1);e+=0.1 end
             end
         end)
     end
@@ -1488,40 +1635,41 @@ end})
 
 local SkyboxLeft  = Tabs.Skybox:AddLeftGroupbox("Skybox Changer")
 local SkyboxRight = Tabs.Skybox:AddRightGroupbox("Info")
-local origSky=nil; local skyEnabled=false
+local origSky=nil;local skyEnabled=false
 
 local function getSky()  return ws.Terrain:FindFirstChildOfClass("Sky") end
 local function getAtmo() return ws.Terrain:FindFirstChildOfClass("Atmosphere") end
 
 local function saveSky()
     if origSky then return end
-    local s=getSky(); if not s then return end
+    local s=getSky();if not s then return end
     origSky={Bk=s.SkyboxBk,Dn=s.SkyboxDn,Ft=s.SkyboxFt,Lf=s.SkyboxLf,Rt=s.SkyboxRt,Up=s.SkyboxUp}
 end
 
 local function applySky(name)
-    local d=SKYBOXES[name]; if not d then return end
+    local d=SKYBOXES[name];if not d then return end
     saveSky()
-    local s=getSky(); if not s then s=Instance.new("Sky");s.Parent=ws.Terrain end
+    local s=getSky();if not s then s=Instance.new("Sky");s.Parent=ws.Terrain end
     s.SkyboxBk=d.Bk;s.SkyboxDn=d.Dn;s.SkyboxFt=d.Ft;s.SkyboxLf=d.Lf;s.SkyboxRt=d.Rt;s.SkyboxUp=d.Up
     local a=getAtmo()
-    if d.isNight then Lighting.ClockTime=0;Lighting.Ambient=Color3.fromRGB(30,30,60);if a then a.Density=0.8;a.Color=Color3.fromRGB(0,0,30)end
+    if d.isNight then Lighting.ClockTime=0;Lighting.Ambient=Color3.fromRGB(30,30,60);if a then a.Density=0.8;a.Color=Color3.fromRGB(0,0,30) end
     elseif d.isSpace then Lighting.ClockTime=0;Lighting.Ambient=Color3.fromRGB(10,10,20);Lighting.Brightness=0;if a then a.Density=0 end
-    else Lighting.ClockTime=14;Lighting.Ambient=Color3.fromRGB(70,70,70);Lighting.Brightness=2;if a then a.Density=0.395;a.Color=Color3.fromRGB(199,170,0)end end
+    else Lighting.ClockTime=14;Lighting.Ambient=Color3.fromRGB(70,70,70);Lighting.Brightness=2;if a then a.Density=0.395;a.Color=Color3.fromRGB(199,170,0) end end
 end
 
 local function restoreSky()
     if not origSky then return end
-    local s=getSky(); if not s then return end
-    s.SkyboxBk=origSky.Bk;s.SkyboxDn=origSky.Dn;s.SkyboxFt=origSky.Ft;s.SkyboxLf=origSky.Lf;s.SkyboxRt=origSky.Rt;s.SkyboxUp=origSky.Up
+    local s=getSky();if not s then return end
+    s.SkyboxBk=origSky.Bk;s.SkyboxDn=origSky.Dn;s.SkyboxFt=origSky.Ft
+    s.SkyboxLf=origSky.Lf;s.SkyboxRt=origSky.Rt;s.SkyboxUp=origSky.Up
     origSky=nil
 end
 
-SkyboxLeft:AddToggle("SkyboxEnabled",{Text="Enable Skybox",Default=false,Callback=function(v)skyEnabled=v;if v then applySky(Options.SkyboxSelect.Value);Library:Notify("Skybox Applied!",2) else restoreSky();Library:Notify("Skybox Restored!",2)end end})
-SkyboxLeft:AddDropdown("SkyboxSelect",{Text="Select Skybox",Values=SKYBOX_LIST,Default=1,Multi=false,Callback=function(v)if skyEnabled then applySky(v)end end})
+SkyboxLeft:AddToggle("SkyboxEnabled",{Text="Enable Skybox",Default=false,Callback=function(v)skyEnabled=v;if v then applySky(Options.SkyboxSelect.Value);Library:Notify("Applied!",2) else restoreSky();Library:Notify("Restored!",2) end end})
+SkyboxLeft:AddDropdown("SkyboxSelect",{Text="Select Skybox",Values=SKYBOX_LIST,Default=1,Multi=false,Callback=function(v)if skyEnabled then applySky(v) end end})
 SkyboxLeft:AddButton({Text="Apply Now",Func=function()if not skyEnabled then Library:Notify("Enable Skybox first!",2);return end;applySky(Options.SkyboxSelect.Value);Library:Notify("Applied!",2)end})
 SkyboxLeft:AddButton({Text="Restore Original",Func=function()restoreSky();Library:Notify("Restored!",2)end})
-SkyboxRight:AddLabel("Default / Night / Bliss / Sunset / Space",true)
+SkyboxRight:AddLabel("Default / Night Sky / Bliss / Sunset / Space",true)
 
 -- =============================================
 --   UI SETTINGS TAB
@@ -1529,19 +1677,19 @@ SkyboxRight:AddLabel("Default / Night / Bliss / Sunset / Space",true)
 
 local MenuGroup=Tabs.UISettings:AddLeftGroupbox("Menu")
 MenuGroup:AddToggle("KeybindMenuOpen",{Default=Library.KeybindFrame.Visible,Text="Open Keybind Menu",Callback=function(v)Library.KeybindFrame.Visible=v end})
-MenuGroup:AddToggle("ShowCustomCursor",{Text="Custom Cursor",Default=false,Callback=function(v)Library.ShowCustomCursor=v end})
+MenuGroup:AddToggle("ShowCustomCursor",{Text="Custom Cursor",Default=false,Tooltip="May disappear after extended use",Callback=function(v)Library.ShowCustomCursor=v end})
 MenuGroup:AddDivider()
 MenuGroup:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind",{Default="RightShift",NoUI=true,Text="Menu Keybind"})
-
 MenuGroup:AddButton({Text="Unload",Func=function()
     AB.on=false;rageCfg.enabled=false;WB.enabled=false;espCfg.enabled=false;autoVoteActive=false
     stopRagebot();stopHitSound();unhookSilent();wbState:Shutdown()
-    for p in pairs(espPool) do destroyESPForPlayer(p) end
+    for p in pairs(espPool) do destroyESPObjects(p) end
     pcall(function()fovCircle:Remove()end);pcall(function()fovHalf:Remove()end)
     pcall(function()silentCircle:Remove()end);pcall(function()abCirc:Remove()end)
     restoreSky()
-    local allConns={fovChangerConn,noShakeConn,noSwayConn,noBobConn,noJumpConn,noSlideConn,crossConn,sensConn,vmConn}
-    for _,c in pairs(allConns) do if c then pcall(function()c:Disconnect()end)end end
+    for _,c in pairs({fovChangerConn,noShakeConn,noSwayConn,noBobConn,noJumpConn,noSlideConn,crossConn,sensConn,vmConn}) do
+        if c then pcall(function()c:Disconnect()end) end
+    end
     pcall(function()if CameraController then CameraController._base_fov=80;CameraController._shake_enabled=true;CameraController._crosshair_disabled=false;CameraController.ViewModelOffsetCFrame=CFrame.identity;CameraController:_UpdateSettings();ws.CurrentCamera.FieldOfView=80 end end)
     pcall(function()RunService:UnbindFromRenderStep("__wbRestore")end)
     Library:Unload()
@@ -1550,35 +1698,28 @@ end})
 Library.ToggleKeybind = Options.MenuKeybind
 
 -- =============================================
---   SINGLE RENDER LOOP
---   ESP runs every frame (smooth tracking)
---   Everything else only runs when enabled
---   Watermark updated once per second
+--   MAIN RENDER LOOP
+--   Single RenderStepped — everything in one
+--   ESP runs every frame — perfectly smooth
 -- =============================================
 
-local frameCount     = 0
-local watermarkTimer = 0
-local cachedFPS      = 60
-local cachedPing     = 0
-local pingTimer      = 0
+local frameCount=0;local wTimer=0;local cachedFPS=60;local cachedPing=0;local pingTimer=0
 
 RunService.RenderStepped:Connect(function(dt)
-    -- Always update camera ref
     cam = ws.CurrentCamera
 
-    -- Frame counter
-    frameCount    += 1
-    watermarkTimer += dt
-    pingTimer      += dt
+    -- FPS + watermark (1/sec update)
+    frameCount += 1
+    wTimer     += dt
+    pingTimer  += dt
 
-    -- Update watermark once/sec
-    if watermarkTimer >= 1 then
-        cachedFPS      = frameCount
-        frameCount     = 0
-        watermarkTimer = 0
+    if wTimer >= 1 then
+        cachedFPS = frameCount
+        frameCount = 0
+        wTimer     = 0
     end
 
-    -- Update ping every 5 seconds (cheap)
+    -- Ping (every 5 sec — expensive API call)
     if pingTimer >= 5 then
         pingTimer = 0
         pcall(function()
@@ -1586,16 +1727,16 @@ RunService.RenderStepped:Connect(function(dt)
         end)
     end
 
-    Library:SetWatermark(("Rivals v1.7 | %d fps | %d ms"):format(cachedFPS, cachedPing))
+    Library:SetWatermark(("Rivals v1.8 | %dfps | %dms"):format(cachedFPS, cachedPing))
 
-    -- ── ESP: runs every frame for smooth tracking ──
+    -- ── ESP: full framerate, smooth tracking ──
     pcall(renderESP)
 
     -- ── Aimbot ──
     if AB.on and CameraController then
         if abDoReact then
             abReactT -= dt
-            if abReactT <= 0 then abDoReact=false end
+            if abReactT <= 0 then abDoReact = false end
         end
         if not abDoReact then
             if abTgt and not abTgtValid(abTgt) then
@@ -1614,14 +1755,14 @@ RunService.RenderStepped:Connect(function(dt)
                     abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveProgress=0
                 elseif inFov(abTgt, abEffFov()) then
                     pcall(function()
-                        local aimPos=getPredictedPos(abTgt)
-                        local du=(aimPos-cam.CFrame.Position).Unit
-                        local tRot=Vector2.new(math.asin(math.clamp(du.Y,-1,1)),math.atan2(-du.X,-du.Z))
-                        local cur=CameraController.Rotation
-                        local sp,_=cam:WorldToViewportPoint(aimPos)
-                        local sd=(Vector2.new(sp.X,sp.Y)-getScr()).Magnitude
-                        local newRot=applySmartLock(tRot,cur,dt,sd,abEffFov())
-                        CameraController:ApplyRotationDelta(Vector2.new(newRot.X-cur.X,angDiff(cur.Y,newRot.Y)))
+                        local aimPos = getPredictedPos(abTgt)
+                        local du     = (aimPos-cam.CFrame.Position).Unit
+                        local tRot   = Vector2.new(math.asin(math.clamp(du.Y,-1,1)), math.atan2(-du.X,-du.Z))
+                        local cur    = CameraController.Rotation
+                        local sp, _  = cam:WorldToViewportPoint(aimPos)
+                        local sd     = (Vector2.new(sp.X,sp.Y)-getScr()).Magnitude
+                        local newRot = applySmartLock(tRot,cur,dt,sd,abEffFov())
+                        CameraController:ApplyRotationDelta(Vector2.new(newRot.X-cur.X, angDiff(cur.Y,newRot.Y)))
                     end)
                 else
                     abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveProgress=0
@@ -1632,11 +1773,11 @@ RunService.RenderStepped:Connect(function(dt)
 
     -- ── Aimbot FOV Circle ──
     if fovCfg.visible then
-        local center=fovCfg.useCenter and getScr() or getMousePos()
+        local center = fovCfg.useCenter and getScr() or getMousePos()
         fovCircle.Visible=true;fovCircle.Color=fovCfg.color;fovCircle.Position=center
-        local myRoot=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        local orig=myRoot and myRoot.Position or cam.CFrame.Position
-        fovCircle.Radius=abTgt and (isVis(orig,abTgt) and fovCfg.onTarget or fovCfg.onBarrier) or fovCfg.fovSize
+        local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local orig   = myRoot and myRoot.Position or cam.CFrame.Position
+        fovCircle.Radius = abTgt and (isVis(orig,abTgt) and fovCfg.onTarget or fovCfg.onBarrier) or fovCfg.fovSize
         if fovCfg.half then
             fovHalf.Visible=true;fovHalf.Color=fovCfg.color;fovHalf.Position=center;fovHalf.Radius=fovCircle.Radius*0.5
         else fovHalf.Visible=false end
@@ -1647,13 +1788,15 @@ RunService.RenderStepped:Connect(function(dt)
 
     -- ── Silent FOV Circle ──
     if silentCfg.enabled and silentCfg.circleVisible then
-        local center=silentCfg.useCenter and getScr() or getMousePos()
+        local center = silentCfg.useCenter and getScr() or getMousePos()
         silentCircle.Visible=true;silentCircle.Radius=silentCfg.fovSize
         silentCircle.Thickness=silentCfg.circleThick;silentCircle.Position=center
-        local myRoot=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        local orig=myRoot and myRoot.Position or cam.CFrame.Position
-        silentCircle.Color=getSilentTarget(orig) and silentCfg.targetColor or silentCfg.circleColor
-    else silentCircle.Visible=false end
+        local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local orig   = myRoot and myRoot.Position or cam.CFrame.Position
+        silentCircle.Color = getSilentTarget(orig) and silentCfg.targetColor or silentCfg.circleColor
+    else
+        silentCircle.Visible = false
+    end
 end)
 
 Library:SetWatermarkVisibility(true)
@@ -1673,8 +1816,7 @@ SaveManager:BuildConfigSection(Tabs.UISettings)
 ThemeManager:ApplyToTab(Tabs.UISettings)
 SaveManager:LoadAutoloadConfig()
 
-Library:Notify("Rivals v1.7 | All OFF | RightShift = menu",5)
-print("[v1.7] Clean load — all features off by default")
-print("[v1.7] ESP runs at full framerate — smooth tracking")
-print("[v1.7] Cursor fix: ShowCustomCursor=false by default")
-print("[v1.7] AC bypass non-blocking, delayed background tasks")
+Library:Notify("Rivals v1.8 | All OFF | RightShift = menu", 5)
+print("[v1.8] ESP: full framerate, world-space corners, no pool bugs")
+print("[v1.8] New: Corner Bracket style box option")
+print("[v1.8] All features disabled by default")
