@@ -1,5 +1,5 @@
 -- =============================================
---   Rivals v2.5 — Full Features, Re-Execute Safe
+--   Rivals v2.5 — Full Features, No Freeze, Re-Execute Safe
 -- =============================================
 
 -- Cleanup previous instance if re-executing
@@ -88,7 +88,7 @@ task.spawn(function()
     end)
 end)
 
--- Hook __namecall only ONCE per session (prevents freeze on re-execute)
+-- CRITICAL: Only hook __namecall ONCE (prevents infinite loop on re-execute)
 task.spawn(function()
     task.wait(0.5)
     if getgenv().__RIVALS_AC_HOOKED then return end
@@ -152,7 +152,7 @@ task.spawn(function()
 end)
 
 -- =============================================
---   Character + Modules (sequential, safe)
+--   Character + Modules
 -- =============================================
 
 if not lp.Character then
@@ -729,6 +729,7 @@ RagebotTab:AddButton({Text="Reset Vectors",Func=function()
     rageCfg.v1x=0;rageCfg.v2x=0;rageCfg.v3x=0;rageCfg.v4x=0;rageCfg.v1z=0;rageCfg.v2z=0;rageCfg.v3z=0;rageCfg.v4z=0
     rebuildVectors();Library:Notify("Vectors reset!",2)
 end})
+RagebotTab:AddButton({Text="Print Vectors",Func=function() for i,v in ipairs(rageCfg.vectors) do print(("Vec %d: X=%.1f Y=%.1f Z=%.1f"):format(i,v.X,v.Y,v.Z)) end;Library:Notify("Printed!",2) end})
 
 -- =============================================
 --   WALLBANG
@@ -778,9 +779,11 @@ do
         if self.conn1 then self.conn1:Disconnect() end
         self.conn1 = RunService.Heartbeat:Connect(function() if not self.active then return end; self.target=self:find() end)
         if not __gunMod then return end
+        -- Guard: don't double-hook StartShooting
         if getgenv().__RIVALS_GUN_HOOKED then return end
         getgenv().__RIVALS_GUN_HOOKED = true
         local origSSFunc = __gunMod.StartShooting; self.oldfunc=origSSFunc
+        getgenv().__RIVALS_GUN_ORIG = origSSFunc
         __gunMod.StartShooting = function(gunSelf,...)
             local results = {origSSFunc(gunSelf,...)}
             if not gunSelf.ClientFighter or not gunSelf.ClientFighter.IsLocalPlayer then return table.unpack(results) end
@@ -821,7 +824,7 @@ wbState:init()
 WallbangTab:AddToggle("WallbangEnabled",{Text="Enable Wallbang",Default=false,Risky=true,Callback=function(v) WB.enabled=v; if v then wbState:Start() else wbState:Shutdown() end end})
 WallbangTab:AddDropdown("WallbangHitPart",{Text="Hit Part",Values={"Head","Body"},Default=1,Multi=false,Callback=function(v) WB.hitPart=v end})
 WallbangTab:AddDivider()
-WallbangTab:AddLabel("Hooks Gun.StartShooting\nDesync + fake shoot data\nShoots through walls",true)
+WallbangTab:AddLabel("Desync teleport + fake shoot",true)
 WallbangTab:AddButton({Text="Force Find Target",Func=function() local tg=wbState:find();Library:Notify(tg and "Target: "..tg.Name or "No target!",3) end})
 
 -- =============================================
@@ -1259,6 +1262,7 @@ local function installSkinHooks()
     if skinHooksInstalled then return end; skinHooksInstalled=true
     task.spawn(function()
         task.wait(1); if not hookmetamethod or not EquipCosmeticRemote then return end
+        -- CRITICAL: Don't hook __namecall twice
         if getgenv().__RIVALS_HOOKED_NC then return end
         getgenv().__RIVALS_HOOKED_NC = true
         local oldNC; oldNC = hookmetamethod(game,"__namecall",function(self,...)
@@ -1483,8 +1487,7 @@ Library.ToggleKeybind = Options.MenuKeybind
 -- =============================================
 
 local frameCount,wTimer,cachedFPS = 0,0,60
-local mainConn
-mainConn = RunService.RenderStepped:Connect(function(dt)
+local mainConn = RunService.RenderStepped:Connect(function(dt)
     cam = ws.CurrentCamera
     frameCount += 1; wTimer += dt
     if wTimer >= 1 then cachedFPS = frameCount; frameCount = 0; wTimer = 0 end
@@ -1509,4 +1512,92 @@ mainConn = RunService.RenderStepped:Connect(function(dt)
             CameraController._camera_sensitivity_y=Options.SensY.Value/100
         end
         if Toggles.ViewmodelEnabled and Toggles.ViewmodelEnabled.Value then
-            
+            CameraController.ViewModelOffsetCFrame=CFrame.new(Options.ViewmodelX.Value,Options.ViewmodelY.Value,Options.ViewmodelZ.Value)
+        end
+    end)
+
+    if AB.on and CameraController then
+        if abDoReact then abReactT-=dt;if abReactT<=0 then abDoReact=false end end
+        if not abDoReact then
+            if abTgt and not abTgtValid(abTgt) then abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end
+            if not abTgt then abTgt=abFind();if abTgt then abLockT=0;abDoReact=true;abReactT=AB.reactTime/1000;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end end
+            if abTgt then
+                abLockT+=dt
+                if abLockT>AB.maxLock then abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
+                elseif inFov(abTgt,abEffFov()) then
+                    pcall(function()
+                        local aimPos=getPredictedPos(abTgt);local du=(aimPos-cam.CFrame.Position).Unit
+                        local tRot=Vector2.new(math.asin(math.clamp(du.Y,-1,1)),math.atan2(-du.X,-du.Z))
+                        local cur=CameraController.Rotation;local sp,_=cam:WorldToViewportPoint(aimPos)
+                        local sd=(Vector2.new(sp.X,sp.Y)-getScr()).Magnitude
+                        local newRot=applySmartLock(tRot,cur,dt,sd,abEffFov())
+                        CameraController:ApplyRotationDelta(Vector2.new(newRot.X-cur.X,angDiff(cur.Y,newRot.Y)))
+                    end)
+                else abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end
+            end
+        end
+    end
+
+    if fovCfg.visible then
+        local center=fovCfg.useCenter and getScr() or getMousePos()
+        fovCircle.Visible=true;fovCircle.Color=fovCfg.color;fovCircle.Position=center
+        local myRoot=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local orig=myRoot and myRoot.Position or cam.CFrame.Position
+        fovCircle.Radius=abTgt and(isVis(orig,abTgt) and fovCfg.onTarget or fovCfg.onBarrier) or fovCfg.fovSize
+        if fovCfg.half then fovHalf.Visible=true;fovHalf.Color=fovCfg.color;fovHalf.Position=center;fovHalf.Radius=fovCircle.Radius*0.5
+        else fovHalf.Visible=false end
+        abCirc.Position=center;abCirc.Radius=abEffFov();abCirc.Visible=AB.on and AB.drawFov
+    else fovCircle.Visible=false;fovHalf.Visible=false;abCirc.Visible=false end
+
+    if silentCfg.enabled and silentCfg.circleVisible then
+        local center=silentCfg.useCenter and getScr() or getMousePos()
+        silentCircle.Visible=true;silentCircle.Radius=silentCfg.fovSize
+        silentCircle.Thickness=silentCfg.circleThick;silentCircle.Position=center
+        local myRoot=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local orig=myRoot and myRoot.Position or cam.CFrame.Position
+        silentCircle.Color=getSilentTarget(orig) and silentCfg.targetColor or silentCfg.circleColor
+    else silentCircle.Visible=false end
+end)
+
+Library:SetWatermarkVisibility(true)
+Library:OnUnload(function() Library.Unloaded=true end)
+
+pcall(function()
+    ThemeManager:SetLibrary(Library);SaveManager:SetLibrary(Library)
+    SaveManager:IgnoreThemeSettings();SaveManager:SetIgnoreIndexes({"MenuKeybind"})
+    ThemeManager:SetFolder("RivalsScript");SaveManager:SetFolder("RivalsScript/Rivals")
+    SaveManager:BuildConfigSection(Tabs.UISettings);ThemeManager:ApplyToTab(Tabs.UISettings)
+    SaveManager:LoadAutoloadConfig()
+end)
+
+-- =============================================
+--   Global unload function for re-execution
+-- =============================================
+
+getgenv().__RIVALS_UNLOAD = function()
+    pcall(function()
+        AB.on=false
+        if rageCfg then rageCfg.enabled=false end
+        if espCfg then espCfg.enabled=false end
+        autoVoteActive=false
+        pcall(function() stopRagebot() end)
+        pcall(function() stopHitSound() end)
+        pcall(function() unhookSilent() end)
+        pcall(function() wbState:Shutdown() end)
+        for p in pairs(espPool) do pcall(function() destroyESPObjects(p) end) end
+        pcall(function() fovCircle:Remove() end)
+        pcall(function() fovHalf:Remove() end)
+        pcall(function() silentCircle:Remove() end)
+        pcall(function() abCirc:Remove() end)
+        pcall(function() restoreSky() end)
+        pcall(function() RunService:UnbindFromRenderStep("__wbRestore") end)
+        pcall(function() if mainConn then mainConn:Disconnect() end end)
+        pcall(function() Library:Unload() end)
+    end)
+    getgenv().__RIVALS_LOADED = false
+end
+
+Library:Notify("Rivals v2.5 | Re-execute safe | RightShift = menu", 5)
+print("[Rivals v2.5] Loaded successfully")
+
+end) -- closes task.spawn
