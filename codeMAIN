@@ -171,7 +171,7 @@ print("[AC] Bypass queued")
 --   Linoria Library
 -- =============================================
 
-local repo         = "https://raw.githubusercontent.com/xyznick/UELinoriaLib/main/"
+local repo         = "https://github.com/violin-suzutsuki/LinoriaLib/tree/main"
 local Library      = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager  = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
