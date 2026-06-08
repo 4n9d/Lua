@@ -1,15 +1,6 @@
 -- =============================================
---   Rivals v2.5 — Full Features, No Freeze, Re-Execute Safe
+--   Rivals Script v2.4 — Full Features, No Freeze
 -- =============================================
-
--- Cleanup previous instance if re-executing
-if getgenv().__RIVALS_LOADED then
-    pcall(function()
-        if getgenv().__RIVALS_UNLOAD then getgenv().__RIVALS_UNLOAD() end
-    end)
-    task.wait(0.5)
-end
-getgenv().__RIVALS_LOADED = true
 
 task.spawn(function()
 
@@ -55,7 +46,7 @@ task.spawn(function()
     local idx = 0
     for _, v in ipairs(gc) do
         idx += 1
-        if idx % 500 == 0 then task.wait() end
+        if idx % 300 == 0 then task.wait() end
         if typeof(v) ~= "function" then continue end
         local ok2, src = pcall(debug.info, v, "s")
         if ok2 and type(src) == "string" and src:find("AnalyticsPipelineController") then
@@ -88,13 +79,17 @@ task.spawn(function()
     end)
 end)
 
--- CRITICAL: Only hook __namecall ONCE (prevents infinite loop on re-execute)
 task.spawn(function()
     task.wait(0.5)
-    if getgenv().__RIVALS_AC_HOOKED then return end
-    getgenv().__RIVALS_AC_HOOKED = true
     pcall(function()
         local fake = Instance.new("RemoteEvent"); fake.Name = "ClientAlert"; fake.Parent = lp
+        local pmt = getrawmetatable(lp); local oldnc = rawget(pmt, "__namecall")
+        setreadonly(pmt, false)
+        pmt.__namecall = newcclosure(function(self, ...)
+            if getnamecallmethod() == "WaitForChild" and select(1,...) == "ClientAlert" then return fake end
+            return oldnc(self, ...)
+        end)
+        setreadonly(pmt, true)
         local mt = getrawmetatable(game); local old = rawget(mt, "__namecall")
         setreadonly(mt, false)
         mt.__namecall = newcclosure(function(self, ...)
@@ -130,21 +125,24 @@ task.spawn(function()
         local ok, gc = pcall(getgc, false)
         if not ok or not gc then return end
         local rf = game:GetService("ReplicatedFirst")
-        local ls3 = rf:FindFirstChild("LocalScript3"); if not ls3 then return end
+        local ls3 = rf:FindFirstChild("LocalScript3")
+        if not ls3 then return end
         local idx = 0
         for _, f in ipairs(gc) do
             idx += 1
-            if idx % 500 == 0 then task.wait() end
+            if idx % 300 == 0 then task.wait() end
             if typeof(f) ~= "function" then continue end
             local ok3, e = pcall(getfenv, f)
             if not ok3 or not e then continue end
-            local s2 = rawget(e, "script"); if not s2 then continue end
+            local s2 = rawget(e, "script")
+            if not s2 then continue end
             if s2 ~= ls3 and not tostring(s2):find("LoadingScreen") then continue end
             local ok4, cs = pcall(debug.getconstants, f)
             if not ok4 or not cs then continue end
             for _, k in ipairs(cs) do
                 if type(k) == "string" and (k:find("TakeTheL") or k:find("ban") or k:find("kick")) then
-                    pcall(hookfunction, f, function() end); break
+                    pcall(hookfunction, f, function() end)
+                    break
                 end
             end
         end
@@ -152,7 +150,7 @@ task.spawn(function()
 end)
 
 -- =============================================
---   Character + Modules
+--   Character wait + module load (SEQUENTIAL, no deadlock)
 -- =============================================
 
 if not lp.Character then
@@ -163,6 +161,7 @@ end
 local PlayerScripts = lp:FindFirstChild("PlayerScripts") or lp:WaitForChild("PlayerScripts", 10)
 if not PlayerScripts then warn("[Rivals] No PlayerScripts"); return end
 
+-- Linoria loads in parallel (only HTTP, no require)
 local Library, ThemeManager, SaveManager
 local linoriaReady = false
 task.spawn(function()
@@ -174,6 +173,7 @@ task.spawn(function()
     linoriaReady = true
 end)
 
+-- Modules sequentially (no deadlock)
 local Controllers = PlayerScripts:FindFirstChild("Controllers") or PlayerScripts:WaitForChild("Controllers", 5)
 local Modules     = ReplicatedStorage:FindFirstChild("Modules")  or ReplicatedStorage:WaitForChild("Modules", 5)
 
@@ -453,7 +453,7 @@ AimbotTab:AddSlider("AimbotMaxLock",{Text="Max Lock Time",Default=300,Min=1,Max=
 AimbotTab:AddSlider("AimbotReaction",{Text="Reaction Time",Default=100,Min=0,Max=500,Rounding=0,Suffix="ms",Callback=function(v) AB.reactTime=v end})
 
 -- =============================================
---   FOV CIRCLE
+--   FOV CIRCLE (full)
 -- =============================================
 
 local fovCfg = {visible=false,half=false,color=Color3.fromRGB(255,255,255),fovSize=150,onTarget=60,onBarrier=200,useCenter=false}
@@ -471,7 +471,7 @@ FOVTab:AddSlider("FOVOnTarget",{Text="On Target Radius",Default=60,Min=10,Max=50
 FOVTab:AddSlider("FOVOnBarrier",{Text="On Barrier Radius",Default=200,Min=10,Max=500,Rounding=0,Suffix="px",Callback=function(v) fovCfg.onBarrier=v end})
 
 -- =============================================
---   SILENT AIM
+--   SILENT AIM (full)
 -- =============================================
 
 local silentCfg = {enabled=false,hitChance=100,prediction=0,visCheck=false,useCenter=false,fovSize=150,maxDist=200,part="Head",circleVisible=false,circleColor=Color3.fromRGB(0,200,255),circleThick=1.5,targetColor=Color3.fromRGB(255,50,50)}
@@ -572,7 +572,7 @@ SilentFOVTab:AddSlider("SilentCircleFOV",{Text="Circle Radius",Default=150,Min=1
 SilentFOVTab:AddSlider("SilentCircleSegments",{Text="Segments",Default=64,Min=8,Max=128,Rounding=0,Suffix=" sides",Callback=function(v) silentCircle.NumSides=v end})
 
 -- =============================================
---   RAGEBOT
+--   RAGEBOT (full vectors + improved manip)
 -- =============================================
 
 local rageCfg = {
@@ -732,7 +732,7 @@ end})
 RagebotTab:AddButton({Text="Print Vectors",Func=function() for i,v in ipairs(rageCfg.vectors) do print(("Vec %d: X=%.1f Y=%.1f Z=%.1f"):format(i,v.X,v.Y,v.Z)) end;Library:Notify("Printed!",2) end})
 
 -- =============================================
---   WALLBANG
+--   WALLBANG (full implementation)
 -- =============================================
 
 local WB = {enabled=false, hitPart="Head"}
@@ -779,11 +779,7 @@ do
         if self.conn1 then self.conn1:Disconnect() end
         self.conn1 = RunService.Heartbeat:Connect(function() if not self.active then return end; self.target=self:find() end)
         if not __gunMod then return end
-        -- Guard: don't double-hook StartShooting
-        if getgenv().__RIVALS_GUN_HOOKED then return end
-        getgenv().__RIVALS_GUN_HOOKED = true
         local origSSFunc = __gunMod.StartShooting; self.oldfunc=origSSFunc
-        getgenv().__RIVALS_GUN_ORIG = origSSFunc
         __gunMod.StartShooting = function(gunSelf,...)
             local results = {origSSFunc(gunSelf,...)}
             if not gunSelf.ClientFighter or not gunSelf.ClientFighter.IsLocalPlayer then return table.unpack(results) end
@@ -816,6 +812,7 @@ do
         if self.conn1 then self.conn1:Disconnect();self.conn1=nil end
         if self.conn2 then self.conn2:Disconnect();self.conn2=nil end
         if self.task1 then task.cancel(self.task1);self.task1=nil end
+        if self.oldfunc and __gunMod then __gunMod.StartShooting=self.oldfunc;self.oldfunc=nil end
         Library:Notify("Wallbang Off",2)
     end
 end
@@ -824,7 +821,7 @@ wbState:init()
 WallbangTab:AddToggle("WallbangEnabled",{Text="Enable Wallbang",Default=false,Risky=true,Callback=function(v) WB.enabled=v; if v then wbState:Start() else wbState:Shutdown() end end})
 WallbangTab:AddDropdown("WallbangHitPart",{Text="Hit Part",Values={"Head","Body"},Default=1,Multi=false,Callback=function(v) WB.hitPart=v end})
 WallbangTab:AddDivider()
-WallbangTab:AddLabel("Desync teleport + fake shoot",true)
+WallbangTab:AddLabel("Hooks Gun.StartShooting\nDesync + fake shoot data\nShoots through walls",true)
 WallbangTab:AddButton({Text="Force Find Target",Func=function() local tg=wbState:find();Library:Notify(tg and "Target: "..tg.Name or "No target!",3) end})
 
 -- =============================================
@@ -863,7 +860,7 @@ HitSoundTab:AddSlider("HitSoundVolume",{Text="Volume",Default=100,Min=1,Max=100,
 HitSoundTab:AddSlider("HitSoundPitch",{Text="Pitch",Default=10,Min=1,Max=30,Rounding=1,Suffix="x0.1",Callback=function(v) hitSoundCfg.pitch=v*0.1; if hitSoundCfg.enabled then applyHitSound(hitSoundCfg.soundId,hitSoundCfg.volume,hitSoundCfg.pitch) end end})
 
 -- =============================================
---   ESP
+--   ESP (full)
 -- =============================================
 
 local ESPLeft = Tabs.ESP:AddLeftTabbox()
@@ -1109,7 +1106,7 @@ ESPFiltersTab:AddToggle("ESPVisibleOnly",{Text="Visible Only",Default=false,Call
 ESPFiltersTab:AddSlider("ESPMaxDist",{Text="Max Distance",Default=1000,Min=50,Max=5000,Rounding=0,Suffix="m",Callback=function(v) espCfg.maxDist=v end})
 
 -- =============================================
---   CAMERA
+--   CAMERA (full)
 -- =============================================
 
 local CamLeft = Tabs.Camera:AddLeftGroupbox("Camera Settings")
@@ -1262,9 +1259,6 @@ local function installSkinHooks()
     if skinHooksInstalled then return end; skinHooksInstalled=true
     task.spawn(function()
         task.wait(1); if not hookmetamethod or not EquipCosmeticRemote then return end
-        -- CRITICAL: Don't hook __namecall twice
-        if getgenv().__RIVALS_HOOKED_NC then return end
-        getgenv().__RIVALS_HOOKED_NC = true
         local oldNC; oldNC = hookmetamethod(game,"__namecall",function(self,...)
             if getnamecallmethod()~="FireServer" then return oldNC(self,...) end
             local args={...}
@@ -1396,7 +1390,7 @@ task.spawn(function()
 end)
 
 -- =============================================
---   MISC
+--   MISC (full)
 -- =============================================
 
 local MiscLeft = Tabs.Misc:AddLeftTabbox()
@@ -1477,24 +1471,32 @@ MenuGroup:AddToggle("ShowCustomCursor",{Text="Custom Cursor",Default=false,Callb
 MenuGroup:AddDivider()
 MenuGroup:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind",{Default="RightShift",NoUI=true,Text="Menu Keybind"})
 MenuGroup:AddButton({Text="Unload",Func=function()
-    if getgenv().__RIVALS_UNLOAD then getgenv().__RIVALS_UNLOAD() end
+    AB.on=false;rageCfg.enabled=false;WB.enabled=false;espCfg.enabled=false;autoVoteActive=false
+    stopRagebot();stopHitSound();unhookSilent();wbState:Shutdown()
+    for p in pairs(espPool) do destroyESPObjects(p) end
+    pcall(function() fovCircle:Remove();fovHalf:Remove();silentCircle:Remove();abCirc:Remove() end)
+    restoreSky()
+    pcall(function() RunService:UnbindFromRenderStep("__wbRestore") end)
+    Library:Unload()
 end})
 
 Library.ToggleKeybind = Options.MenuKeybind
 
 -- =============================================
---   MAIN LOOP — single RenderStepped
+--   MAIN LOOP — single RenderStepped handles everything
 -- =============================================
 
 local frameCount,wTimer,cachedFPS = 0,0,60
-local mainConn = RunService.RenderStepped:Connect(function(dt)
+RunService.RenderStepped:Connect(function(dt)
     cam = ws.CurrentCamera
     frameCount += 1; wTimer += dt
     if wTimer >= 1 then cachedFPS = frameCount; frameCount = 0; wTimer = 0 end
-    Library:SetWatermark(("Rivals v2.5 | %dfps"):format(cachedFPS))
+    Library:SetWatermark(("Rivals v2.4 | %dfps"):format(cachedFPS))
 
+    -- ESP
     pcall(renderESP)
 
+    -- Camera effects (consolidated to single loop, no separate connections)
     pcall(function()
         if not CameraController then return end
         if Toggles.FOVChangerEnabled and Toggles.FOVChangerEnabled.Value then CameraController._base_fov = Options.FOVValue.Value end
@@ -1516,6 +1518,7 @@ local mainConn = RunService.RenderStepped:Connect(function(dt)
         end
     end)
 
+    -- Aimbot
     if AB.on and CameraController then
         if abDoReact then abReactT-=dt;if abReactT<=0 then abDoReact=false end end
         if not abDoReact then
@@ -1538,6 +1541,7 @@ local mainConn = RunService.RenderStepped:Connect(function(dt)
         end
     end
 
+    -- FOV Circle
     if fovCfg.visible then
         local center=fovCfg.useCenter and getScr() or getMousePos()
         fovCircle.Visible=true;fovCircle.Color=fovCfg.color;fovCircle.Position=center
@@ -1549,6 +1553,7 @@ local mainConn = RunService.RenderStepped:Connect(function(dt)
         abCirc.Position=center;abCirc.Radius=abEffFov();abCirc.Visible=AB.on and AB.drawFov
     else fovCircle.Visible=false;fovHalf.Visible=false;abCirc.Visible=false end
 
+    -- Silent FOV Circle
     if silentCfg.enabled and silentCfg.circleVisible then
         local center=silentCfg.useCenter and getScr() or getMousePos()
         silentCircle.Visible=true;silentCircle.Radius=silentCfg.fovSize
@@ -1570,34 +1575,7 @@ pcall(function()
     SaveManager:LoadAutoloadConfig()
 end)
 
--- =============================================
---   Global unload function for re-execution
--- =============================================
-
-getgenv().__RIVALS_UNLOAD = function()
-    pcall(function()
-        AB.on=false
-        if rageCfg then rageCfg.enabled=false end
-        if espCfg then espCfg.enabled=false end
-        autoVoteActive=false
-        pcall(function() stopRagebot() end)
-        pcall(function() stopHitSound() end)
-        pcall(function() unhookSilent() end)
-        pcall(function() wbState:Shutdown() end)
-        for p in pairs(espPool) do pcall(function() destroyESPObjects(p) end) end
-        pcall(function() fovCircle:Remove() end)
-        pcall(function() fovHalf:Remove() end)
-        pcall(function() silentCircle:Remove() end)
-        pcall(function() abCirc:Remove() end)
-        pcall(function() restoreSky() end)
-        pcall(function() RunService:UnbindFromRenderStep("__wbRestore") end)
-        pcall(function() if mainConn then mainConn:Disconnect() end end)
-        pcall(function() Library:Unload() end)
-    end)
-    getgenv().__RIVALS_LOADED = false
-end
-
-Library:Notify("Rivals v2.5 | Re-execute safe | RightShift = menu", 5)
-print("[Rivals v2.5] Loaded successfully")
+Library:Notify("Rivals v2.4 | All features | RightShift = menu", 5)
+print("[Rivals v2.4] Full features loaded, no freeze")
 
 end) -- closes task.spawn
