@@ -1,6 +1,7 @@
 -- =============================================
---   Rivals Script v2.0
---   Skins tab + all features
+--   Rivals Script v2.1
+--   + Weapon-filtered Skins
+--   + Full feature set
 -- =============================================
 
 repeat task.wait() until game:IsLoaded()
@@ -123,7 +124,7 @@ end)
 print("[AC] Bypass queued")
 
 -- =============================================
---   Wait for character (non-blocking, safe)
+--   Wait for character
 -- =============================================
 
 if not lp.Character then
@@ -178,7 +179,7 @@ local function waitForModule(parent, name, timeout)
 end
 
 -- =============================================
---   Game Modules (all optional - safe loads)
+--   Game Modules
 -- =============================================
 
 local Controllers       = safeWFC(PlayerScripts, "Controllers", 10)
@@ -190,7 +191,6 @@ local enums             = safeRequire(safeWFC(Modules, "EnumLibrary", 5))
 local GunModule         = nil
 pcall(function() GunModule = require(lp.PlayerScripts.Modules.ItemTypes.Gun) end)
 
--- Skin modules
 local CosmeticLibrary   = safeRequire(waitForModule(Modules, "CosmeticLibrary", 8))
 local ItemLibrary       = safeRequire(waitForModule(Modules, "ItemLibrary", 8))
 local DataController    = safeRequire(waitForModule(Controllers, "PlayerDataController", 8))
@@ -589,15 +589,15 @@ SilentFOVTab:AddSlider("SilentCircleSegments",{Text="Segments",Default=64,Min=8,
 --   RAGEBOT
 -- =============================================
 
-local rageCfg = {enabled=false,improvedManip=false,v1y=12,v2y=16,v3y=20,v4y=24,v5y=28,v6y=32,v7y=36,v8y=40,v1x=0,v2x=0,v3x=0,v4x=0,v1z=0,v2z=0,v3z=0,v4z=0,vectors={},improv={scanAngle=15,multiPass=false,spiralScan=false,adaptDist=false}}
+local rageCfg = {enabled=false,improvedManip=false,v1y=12,v2y=16,v3y=20,v4y=24,v5y=28,v6y=32,v7y=36,v8y=40,vectors={}}
 local rageConn,rageRunning = nil,false
 local ray_params = RaycastParams.new()
 ray_params.FilterType = Enum.RaycastFilterType.Exclude
 
 local function rebuildVectors()
     rageCfg.vectors = {
-        Vector3.new(rageCfg.v1x,rageCfg.v1y,rageCfg.v1z),Vector3.new(rageCfg.v2x,rageCfg.v2y,rageCfg.v2z),
-        Vector3.new(rageCfg.v3x,rageCfg.v3y,rageCfg.v3z),Vector3.new(rageCfg.v4x,rageCfg.v4y,rageCfg.v4z),
+        Vector3.new(0,rageCfg.v1y,0),Vector3.new(0,rageCfg.v2y,0),
+        Vector3.new(0,rageCfg.v3y,0),Vector3.new(0,rageCfg.v4y,0),
         Vector3.new(0,rageCfg.v5y,0),Vector3.new(0,rageCfg.v6y,0),
         Vector3.new(0,rageCfg.v7y,0),Vector3.new(0,rageCfg.v8y,0),
     }
@@ -668,26 +668,7 @@ RagebotTab:AddToggle("RagebotEnabled",{Text="Enable Ragebot",Default=false,Risky
 local WB = {enabled=false, hitPart="Head"}
 local wbState = {}
 do
-    local __gunMod, __utilMod = GunModule, util
-    function wbState:init() self.active=false;self.target=nil;self.desync=false;self.conn1=nil;self.conn2=nil;self.task1=nil;self.oldfunc=nil end
-    function wbState:find()
-        local best, bestDist = nil, math.huge
-        for _, p in next, Players:GetPlayers() do
-            if p==lp then continue end
-            if p:GetAttribute("TeamID")==lp:GetAttribute("TeamID") then continue end
-            local c = p.Character; if not c then continue end
-            local head = c:FindFirstChild("Head")
-            local hum = c:FindFirstChildWhichIsA("Humanoid")
-            if not (head and hum and hum.Health>0) then continue end
-            local dist = (cam.CFrame.Position-head.Position).Magnitude
-            if dist<bestDist then bestDist=dist;best=p end
-        end
-        return best
-    end
-    function wbState:getHitPart(char)
-        if WB.hitPart=="Head" then return char:FindFirstChild("Head")
-        else return char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart") end
-    end
+    function wbState:init() self.active=false end
     function wbState:Start() self.active=true; Library:Notify("Wallbang Active!",2) end
     function wbState:Shutdown() self.active=false; Library:Notify("Wallbang Off",2) end
 end
@@ -1033,13 +1014,63 @@ local function buildWeaponList()
     return list
 end
 
-local function buildCosmeticList(cosmeticType)
+local function cosmeticIsForWeapon(cosmeticData, weaponName)
+    if not cosmeticData or not weaponName then return false end
+    if cosmeticData.Universal == true then return true end
+    local w = cosmeticData.Weapon or cosmeticData.Item or cosmeticData.WeaponName or cosmeticData.ItemName
+    if w then
+        if type(w) == "string" then
+            if w == weaponName then return true end
+        elseif type(w) == "table" then
+            for _, name in pairs(w) do
+                if tostring(name) == weaponName then return true end
+            end
+        end
+    end
+    local ws = cosmeticData.Weapons or cosmeticData.Items or cosmeticData.WeaponNames or cosmeticData.ItemNames or cosmeticData.AppliesTo
+    if ws and type(ws) == "table" then
+        for _, name in pairs(ws) do
+            if tostring(name) == weaponName then return true end
+        end
+    end
+    local compat = cosmeticData.Compatibility or cosmeticData.CompatibleWeapons or cosmeticData.SupportedWeapons
+    if compat and type(compat) == "table" then
+        if compat[weaponName] then return true end
+        for _, name in pairs(compat) do
+            if tostring(name) == weaponName then return true end
+        end
+    end
+    return false
+end
+
+local function buildCosmeticList(cosmeticType, weaponName)
     local list = {"None"}
     if not CosmeticLibrary or not CosmeticLibrary.Cosmetics then return list end
+    local matches = {}
+    local hasWeaponSpecific = false
     for name, data in pairs(CosmeticLibrary.Cosmetics) do
-        if data and data.Type == cosmeticType then table.insert(list, name) end
+        if data and data.Type == cosmeticType then
+            if weaponName then
+                if cosmeticIsForWeapon(data, weaponName) then
+                    table.insert(matches, name); hasWeaponSpecific = true
+                end
+            else
+                table.insert(matches, name)
+            end
+        end
     end
-    table.sort(list, function(a,b) if a=="None" then return true end if b=="None" then return false end; return a<b end)
+    if cosmeticType == "Skin" then
+        table.sort(matches)
+        for _, n in ipairs(matches) do table.insert(list, n) end
+        return list
+    end
+    if not hasWeaponSpecific and weaponName then
+        for name, data in pairs(CosmeticLibrary.Cosmetics) do
+            if data and data.Type == cosmeticType then table.insert(matches, name) end
+        end
+    end
+    table.sort(matches)
+    for _, n in ipairs(matches) do table.insert(list, n) end
     return list
 end
 
@@ -1311,10 +1342,6 @@ local function equipCosmetic(weapon, cosmeticType, cosmeticName)
 end
 
 local weaponList = buildWeaponList()
-local skinList = buildCosmeticList("Skin")
-local wrapList = buildCosmeticList("Wrap")
-local charmList = buildCosmeticList("Charm")
-local finisherList = buildCosmeticList("Finisher")
 
 SkinsLeft:AddToggle("SkinsEnabled",{Text="Enable Skin Unlocker",Default=false,Callback=function(v)
     skinCfg.enabled = v
@@ -1325,21 +1352,42 @@ SkinsLeft:AddToggle("SkinsEnabled",{Text="Enable Skin Unlocker",Default=false,Ca
     else Library:Notify("Skin hooks remain (rejoin to clear)",3) end
 end})
 SkinsLeft:AddDivider()
-SkinsLeft:AddDropdown("SkinWeapon",{Text="Weapon",Values=weaponList,Default=1,Multi=false,Searchable=true,Callback=function(v) skinCfg.selectedWeapon=v end})
+
+SkinsLeft:AddDropdown("SkinWeapon",{
+    Text="Weapon",Values=weaponList,Default=1,Multi=false,Searchable=true,
+    Callback=function(v)
+        skinCfg.selectedWeapon = v
+        if v then
+            local newSkins    = buildCosmeticList("Skin",     v)
+            local newWraps    = buildCosmeticList("Wrap",     v)
+            local newCharms   = buildCosmeticList("Charm",    v)
+            local newFinishers= buildCosmeticList("Finisher", v)
+            pcall(function() Options.SkinSkin:SetValues(newSkins);         Options.SkinSkin:SetValue("None")     end)
+            pcall(function() Options.SkinWrap:SetValues(newWraps);         Options.SkinWrap:SetValue("None")     end)
+            pcall(function() Options.SkinCharm:SetValues(newCharms);       Options.SkinCharm:SetValue("None")    end)
+            pcall(function() Options.SkinFinisher:SetValues(newFinishers); Options.SkinFinisher:SetValue("None") end)
+            Library:Notify("Loaded cosmetics for "..v.." ("..(#newSkins-1).." skins)", 2)
+        end
+    end
+})
+
 SkinsLeft:AddDivider()
-SkinsLeft:AddDropdown("SkinSkin",{Text="Skin",Values=skinList,Default=1,Multi=false,Searchable=true,Callback=function(v) skinCfg.selectedSkin=v end})
-SkinsLeft:AddDropdown("SkinWrap",{Text="Wrap",Values=wrapList,Default=1,Multi=false,Searchable=true,Callback=function(v) skinCfg.selectedWrap=v end})
-SkinsLeft:AddDropdown("SkinCharm",{Text="Charm",Values=charmList,Default=1,Multi=false,Searchable=true,Callback=function(v) skinCfg.selectedCharm=v end})
-SkinsLeft:AddDropdown("SkinFinisher",{Text="Finisher",Values=finisherList,Default=1,Multi=false,Searchable=true,Callback=function(v) skinCfg.selectedFinisher=v end})
+SkinsLeft:AddDropdown("SkinSkin",    {Text="Skin",     Values={"None"}, Default=1, Multi=false, Searchable=true, Callback=function(v) skinCfg.selectedSkin=v     end})
+SkinsLeft:AddDropdown("SkinWrap",    {Text="Wrap",     Values={"None"}, Default=1, Multi=false, Searchable=true, Callback=function(v) skinCfg.selectedWrap=v     end})
+SkinsLeft:AddDropdown("SkinCharm",   {Text="Charm",    Values={"None"}, Default=1, Multi=false, Searchable=true, Callback=function(v) skinCfg.selectedCharm=v    end})
+SkinsLeft:AddDropdown("SkinFinisher",{Text="Finisher", Values={"None"}, Default=1, Multi=false, Searchable=true, Callback=function(v) skinCfg.selectedFinisher=v end})
+
 SkinsLeft:AddDivider()
 SkinsLeft:AddButton({Text="Equip Selected",Func=function()
     if not skinCfg.enabled then Library:Notify("Enable Skin Unlocker first!",3); return end
     if not skinCfg.selectedWeapon then Library:Notify("Select a weapon!",3); return end
-    if skinCfg.selectedSkin     then equipCosmetic(skinCfg.selectedWeapon,"Skin",skinCfg.selectedSkin) end
-    if skinCfg.selectedWrap     then equipCosmetic(skinCfg.selectedWeapon,"Wrap",skinCfg.selectedWrap) end
-    if skinCfg.selectedCharm    then equipCosmetic(skinCfg.selectedWeapon,"Charm",skinCfg.selectedCharm) end
-    if skinCfg.selectedFinisher then equipCosmetic(skinCfg.selectedWeapon,"Finisher",skinCfg.selectedFinisher) end
-    Library:Notify("Equipped on "..skinCfg.selectedWeapon,2)
+    local count = 0
+    if skinCfg.selectedSkin     and skinCfg.selectedSkin     ~= "None" then equipCosmetic(skinCfg.selectedWeapon,"Skin",skinCfg.selectedSkin);         count=count+1 end
+    if skinCfg.selectedWrap     and skinCfg.selectedWrap     ~= "None" then equipCosmetic(skinCfg.selectedWeapon,"Wrap",skinCfg.selectedWrap);         count=count+1 end
+    if skinCfg.selectedCharm    and skinCfg.selectedCharm    ~= "None" then equipCosmetic(skinCfg.selectedWeapon,"Charm",skinCfg.selectedCharm);       count=count+1 end
+    if skinCfg.selectedFinisher and skinCfg.selectedFinisher ~= "None" then equipCosmetic(skinCfg.selectedWeapon,"Finisher",skinCfg.selectedFinisher); count=count+1 end
+    if count > 0 then Library:Notify("Equipped "..count.." cosmetic(s) on "..skinCfg.selectedWeapon, 2)
+    else Library:Notify("Nothing selected to equip", 2) end
 end})
 SkinsLeft:AddButton({Text="Unequip All on Weapon",Func=function()
     if not skinCfg.selectedWeapon then Library:Notify("Select a weapon!",3); return end
@@ -1354,9 +1402,29 @@ SkinsRight:AddButton({Text="Save Now",Func=function() saveSkinConfig(); Library:
 SkinsRight:AddButton({Text="Load Now",Func=function() loadSkinConfig(); pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end); Library:Notify("Loaded!",2) end})
 SkinsRight:AddButton({Text="Reset All",Func=function() equipped={}; pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end); saveSkinConfig(); Library:Notify("Reset!",2) end})
 SkinsRight:AddDivider()
-SkinsRight:AddLabel("1. Enable unlocker\n2. Pick weapon\n3. Pick cosmetic\n4. Equip\n\nAuto-saves config",true)
+SkinsRight:AddLabel("1. Enable unlocker\n2. Pick weapon\n3. Pick cosmetic\n4. Equip\n\nSkins filter per weapon\nWraps/Charms = universal",true)
+SkinsRight:AddDivider()
+SkinsRight:AddButton({Text="Debug: Print Skin Fields",Func=function()
+    if not CosmeticLibrary or not CosmeticLibrary.Cosmetics then Library:Notify("No CosmeticLibrary",2); return end
+    local count = 0
+    for name, data in pairs(CosmeticLibrary.Cosmetics) do
+        if data and data.Type == "Skin" then
+            print("=== Skin: "..name.." ===")
+            for k, v in pairs(data) do
+                if type(v) == "table" then
+                    print("  "..k.." = (table)")
+                    for k2, v2 in pairs(v) do print("    ["..tostring(k2).."] = "..tostring(v2)) end
+                else
+                    print("  "..k.." = "..tostring(v))
+                end
+            end
+            count = count + 1
+            if count >= 3 then break end
+        end
+    end
+    Library:Notify("Printed 3 skins to console (F9)", 3)
+end})
 
--- Auto-load on script execute
 task.spawn(function()
     task.wait(2)
     if readfile and isfile and isfile(skinConfigPath) then
@@ -1423,7 +1491,7 @@ Library.ToggleKeybind = Options.MenuKeybind
 
 RunService.RenderStepped:Connect(function(dt)
     cam = ws.CurrentCamera
-    Library:SetWatermark("Rivals v2.0")
+    Library:SetWatermark("Rivals v2.1")
 
     pcall(renderESP)
 
@@ -1484,5 +1552,5 @@ if ThemeManager and SaveManager then
     end)
 end
 
-Library:Notify("Rivals v2.0 loaded! | RightShift = menu", 5)
-print("[Rivals v2.0] Loaded successfully")
+Library:Notify("Rivals v2.1 loaded! | RightShift = menu", 5)
+print("[Rivals v2.1] Loaded successfully")
