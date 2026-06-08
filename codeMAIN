@@ -1,6 +1,6 @@
 -- =============================================
---   Rivals Script v1.8
---   Fixed ESP + Smooth + Nice Looking
+--   Rivals Script v1.9
+--   Fixed: Aimbot smoothness, Weapon ESP, Layout, HP offset
 --   All features OFF by default
 -- =============================================
 
@@ -393,20 +393,24 @@ local Tabs = {
 
 -- =============================================
 --   COMBAT TAB LAYOUT
+--   Left: Aimbot in own groupbox + tabbox below for other features
+--   Right: FOV tabs
 -- =============================================
 
-local CombatLeft   = Tabs.Combat:AddLeftTabbox()
+local AimbotTab    = Tabs.Combat:AddLeftGroupbox("Aimbot")
+
+local CombatLeftTabs = Tabs.Combat:AddLeftTabbox()
+local SilentTab      = CombatLeftTabs:AddTab("Silent Aim")
+local RagebotTab     = CombatLeftTabs:AddTab("Ragebot")
+local WallbangTab    = CombatLeftTabs:AddTab("Wallbang")
+local HitSoundTab    = CombatLeftTabs:AddTab("Hit Sound")
+
 local CombatRight  = Tabs.Combat:AddRightTabbox()
-local AimbotTab    = CombatLeft:AddTab("Aimbot")
-local SilentTab    = CombatLeft:AddTab("Silent Aim")
-local RagebotTab   = CombatLeft:AddTab("Ragebot")
-local WallbangTab  = CombatLeft:AddTab("Wallbang")
-local HitSoundTab  = CombatLeft:AddTab("Hit Sound")
 local FOVTab       = CombatRight:AddTab("Aimbot FOV")
 local SilentFOVTab = CombatRight:AddTab("Silent FOV")
 
 -- =============================================
---   AIMBOT STATE + LOGIC
+--   AIMBOT STATE + LOGIC (smooth lock fixed)
 -- =============================================
 
 local AB = {
@@ -415,15 +419,15 @@ local AB = {
     curvePct=10, speed=1.0, speedAttack=1.0, speedScaleFov=50,
     maxLock=3.0, reactTime=100, useCenter=false,
 }
-local abTgt         = nil
-local abLockT       = 0
-local abReactT      = 0
-local abDoReact     = false
-local abPrevPos     = nil
-local abPrevTick    = 0
+local abTgt           = nil
+local abLockT         = 0
+local abReactT        = 0
+local abDoReact       = false
+local abPrevPos       = nil
+local abPrevTick      = 0
 local abCurveProgress = 0
-local abCurveStart  = nil
-local abCurveEnd    = nil
+local abCurveStart    = nil
+local abCurveEnd      = nil
 
 local abCirc = Drawing.new("Circle")
 abCirc.NumSides     = 64
@@ -474,44 +478,65 @@ local function abFind()
     return best
 end
 
+-- Prediction with velocity clamping (rejects teleport spikes)
 local function getPredictedPos(pt)
-    local now = tick()
-    local pos = pt.Position
-    if abPrevPos and (now-abPrevTick)>0 then
-        local vel = (pos-abPrevPos)/(now-abPrevTick)
-        pos = pos + vel*(0.08*AB.speedAttack)
+    local now    = tick()
+    local curPos = pt.Position
+    local result = curPos
+
+    if abPrevPos and (now - abPrevTick) > 0.001 then
+        local delta = now - abPrevTick
+        local vel   = (curPos - abPrevPos) / delta
+        -- Reject insane velocity (lag spike, teleport)
+        if vel.Magnitude < 200 then
+            result = curPos + vel * (0.08 * AB.speedAttack)
+        end
     end
-    abPrevPos  = pt.Position
+
+    abPrevPos  = curPos
     abPrevTick = now
-    return pos
+    return result
 end
 
+-- Smooth lock — curve mode no longer resets on every frame
 local function applySmartLock(tRot, cur, dt, sd, fovR)
     local df = AB.speed
     if fovR > 0 then
-        local n = math.clamp(sd/fovR, 0, 1)
-        df = AB.speed + (AB.speedScaleFov/100)*(1-n)*math.max(AB.speedAttack-AB.speed, 0)
+        local n = math.clamp(sd / fovR, 0, 1)
+        df = AB.speed + (AB.speedScaleFov / 100) * (1 - n) * math.max(AB.speedAttack - AB.speed, 0)
     end
     local eff = math.clamp(df, 0.01, 5)
-    local fac = math.clamp(eff*dt*6, 0, 1)
+    local fac = math.clamp(eff * dt * 6, 0, 1)
+
     if AB.lockMode == "Soft" or AB.lockMode == "Magnet" then
         return Vector2.new(
-            cur.X + (tRot.X-cur.X)*fac,
-            cur.Y + angDiff(cur.Y, tRot.Y)*fac
+            cur.X + (tRot.X - cur.X) * fac,
+            cur.Y + angDiff(cur.Y, tRot.Y) * fac
         )
     else
-        local dist = math.sqrt((tRot.X-cur.X)^2 + angDiff(cur.Y,tRot.Y)^2)
-        if abCurveStart==nil or dist>0.5 then
+        -- Curve mode: only restart curve on big jumps (new target)
+        local needNewCurve = (abCurveStart == nil) or (abCurveEnd == nil)
+        if not needNewCurve then
+            local dx = tRot.X - abCurveEnd.X
+            local dy = angDiff(abCurveEnd.Y, tRot.Y)
+            local jumpDist = math.sqrt(dx*dx + dy*dy)
+            if jumpDist > 1.2 then needNewCurve = true end
+        end
+
+        if needNewCurve then
             abCurveStart    = cur
             abCurveProgress = 0
         end
         abCurveEnd      = tRot
-        abCurveProgress = math.clamp(abCurveProgress+(AB.curvePct/100)*3*eff*dt, 0, 1)
-        local cv = abCurveProgress^2*(3-2*abCurveProgress)
-        local nP = abCurveStart.X + (abCurveEnd.X-abCurveStart.X)*cv
-        local nY = abCurveStart.Y + angDiff(abCurveStart.Y, abCurveEnd.Y)*cv
+        abCurveProgress = math.clamp(abCurveProgress + (AB.curvePct / 100) * 3 * eff * dt, 0, 1)
+
+        local cv = abCurveProgress^2 * (3 - 2 * abCurveProgress)
+        local nP = abCurveStart.X + (abCurveEnd.X - abCurveStart.X) * cv
+        local nY = abCurveStart.Y + angDiff(abCurveStart.Y, abCurveEnd.Y) * cv
+
         if abCurveProgress >= 1 then
-            abCurveStart    = nil
+            -- Continue tracking smoothly from current point
+            abCurveStart    = Vector2.new(nP, nY)
             abCurveProgress = 0
         end
         return Vector2.new(nP, nY)
@@ -519,88 +544,41 @@ local function applySmartLock(tRot, cur, dt, sd, fovR)
 end
 
 -- =============================================
---   AIMBOT UI  (fixed spacing / no overlap)
+--   AIMBOT UI
 -- =============================================
 
--- ── Section: Enable ──
 AimbotTab:AddToggle("AimbotEnabled", {
-    Text    = "Enable Aimbot",
-    Default = false,
-    Callback = function(v)
-        AB.on = v
+    Text="Enable Aimbot", Default=false,
+    Callback=function(v)
+        AB.on=v
         if not v then
             abTgt=nil; abLockT=0; abDoReact=false
-            abPrevPos=nil; abCurveStart=nil; abCurveProgress=0
+            abPrevPos=nil; abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
         end
         Library:Notify(v and "Aimbot Active!" or "Aimbot Off", 2)
     end
 })
-
 AimbotTab:AddDivider()
 AimbotTab:AddLabel("── Filters ──")
-
 AimbotTab:AddToggle("AimbotTeamCheck", {Text="Team Check",    Default=false, Callback=function(v) AB.team=v      end})
 AimbotTab:AddToggle("AimbotVisCheck",  {Text="Visible Check", Default=false, Callback=function(v) AB.vis=v       end})
 AimbotTab:AddToggle("AimbotUseCenter", {Text="Screen Center", Default=false, Callback=function(v) AB.useCenter=v end})
 AimbotTab:AddToggle("AimbotDynFOV",    {Text="Dynamic FOV",   Default=false, Callback=function(v) AB.dynFov=v    end})
-
 AimbotTab:AddDivider()
 AimbotTab:AddLabel("── Target ──")
-
-AimbotTab:AddDropdown("AimbotPart", {
-    Text    = "Aim Part",
-    Values  = PARTS,
-    Default = 1,
-    Multi   = false,
-    Callback = function(v) AB.part=v end
-})
-AimbotTab:AddDropdown("AimbotLockMode", {
-    Text    = "Lock Mode",
-    Values  = {"Soft","Magnet","Curve"},
-    Default = 1,
-    Multi   = false,
-    Callback = function(v)
-        AB.lockMode=v; abCurveStart=nil; abCurveProgress=0
-    end
-})
-
+AimbotTab:AddDropdown("AimbotPart",    {Text="Aim Part",  Values=PARTS, Default=1, Multi=false, Callback=function(v) AB.part=v end})
+AimbotTab:AddDropdown("AimbotLockMode",{Text="Lock Mode", Values={"Soft","Magnet","Curve"}, Default=1, Multi=false,
+    Callback=function(v) AB.lockMode=v; abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0 end})
 AimbotTab:AddDivider()
 AimbotTab:AddLabel("── Smoothing ──")
-
-AimbotTab:AddSlider("AimbotSpeed", {
-    Text     = "Base Speed",
-    Default  = 100, Min=1, Max=500, Rounding=0, Suffix="x0.01",
-    Callback = function(v) AB.speed=v/100 end
-})
-AimbotTab:AddSlider("AimbotSpeedAtk", {
-    Text     = "Attack Speed",
-    Default  = 100, Min=1, Max=500, Rounding=0, Suffix="x0.01",
-    Callback = function(v) AB.speedAttack=v/100 end
-})
-AimbotTab:AddSlider("AimbotSpeedScaleFov", {
-    Text     = "FOV Speed Scale",
-    Default  = 50, Min=0, Max=100, Rounding=0, Suffix="%",
-    Callback = function(v) AB.speedScaleFov=v end
-})
-AimbotTab:AddSlider("AimbotCurve", {
-    Text     = "Curve Strength",
-    Default  = 10, Min=1, Max=400, Rounding=0, Suffix="%",
-    Callback = function(v) AB.curvePct=v end
-})
-
+AimbotTab:AddSlider("AimbotSpeed",        {Text="Base Speed",      Default=100,Min=1,Max=500,Rounding=0,Suffix="x0.01",Callback=function(v) AB.speed=v/100 end})
+AimbotTab:AddSlider("AimbotSpeedAtk",     {Text="Attack Speed",    Default=100,Min=1,Max=500,Rounding=0,Suffix="x0.01",Callback=function(v) AB.speedAttack=v/100 end})
+AimbotTab:AddSlider("AimbotSpeedScaleFov",{Text="FOV Speed Scale", Default=50, Min=0,Max=100,Rounding=0,Suffix="%",    Callback=function(v) AB.speedScaleFov=v end})
+AimbotTab:AddSlider("AimbotCurve",        {Text="Curve Strength",  Default=10, Min=1,Max=400,Rounding=0,Suffix="%",    Callback=function(v) AB.curvePct=v end})
 AimbotTab:AddDivider()
 AimbotTab:AddLabel("── Timing ──")
-
-AimbotTab:AddSlider("AimbotMaxLock", {
-    Text     = "Max Lock Time",
-    Default  = 300, Min=1, Max=1000, Rounding=0, Suffix="x0.01s",
-    Callback = function(v) AB.maxLock=v/100 end
-})
-AimbotTab:AddSlider("AimbotReaction", {
-    Text     = "Reaction Time",
-    Default  = 100, Min=0, Max=500, Rounding=0, Suffix="ms",
-    Callback = function(v) AB.reactTime=v end
-})
+AimbotTab:AddSlider("AimbotMaxLock", {Text="Max Lock Time", Default=300,Min=1,Max=1000,Rounding=0,Suffix="x0.01s",Callback=function(v) AB.maxLock=v/100 end})
+AimbotTab:AddSlider("AimbotReaction",{Text="Reaction Time", Default=100,Min=0,Max=500, Rounding=0,Suffix="ms",   Callback=function(v) AB.reactTime=v end})
 
 -- =============================================
 --   FOV CIRCLE UI
@@ -611,12 +589,10 @@ local fovCfg = {
     color=Color3.fromRGB(255,255,255),
     fovSize=150, onTarget=60, onBarrier=200, useCenter=false,
 }
-
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible=false; fovCircle.Thickness=1.5
 fovCircle.Color=Color3.fromRGB(255,255,255)
 fovCircle.Filled=false; fovCircle.NumSides=64; fovCircle.Radius=150
-
 local fovHalf = Drawing.new("Circle")
 fovHalf.Visible=false; fovHalf.Thickness=1
 fovHalf.Color=Color3.fromRGB(255,255,255)
@@ -625,30 +601,14 @@ fovHalf.Filled=false; fovHalf.NumSides=32; fovHalf.Radius=75
 FOVTab:AddToggle("FOVVisible",   {Text="Show FOV Circle", Default=false, Callback=function(v) fovCfg.visible=v   end})
 FOVTab:AddToggle("FOVHalf",      {Text="Half Circle",     Default=false, Callback=function(v) fovCfg.half=v      end})
 FOVTab:AddToggle("FOVUseCenter", {Text="Screen Center",   Default=false, Callback=function(v) fovCfg.useCenter=v end})
-
 FOVTab:AddDivider()
-FOVTab:AddLabel("Color"):AddColorPicker("FOVColor", {
-    Default  = Color3.fromRGB(255,255,255),
-    Title    = "FOV Color",
-    Callback = function(v) fovCfg.color=v end
-})
-
+FOVTab:AddLabel("Color"):AddColorPicker("FOVColor",{Default=Color3.fromRGB(255,255,255),Title="FOV Color",
+    Callback=function(v) fovCfg.color=v end})
 FOVTab:AddDivider()
-FOVTab:AddSlider("FOVSize", {
-    Text     = "FOV Size",
-    Default  = 150, Min=10, Max=500, Rounding=0, Suffix="px",
-    Callback = function(v) fovCfg.fovSize=v; AB.fov=v; fovCircle.Radius=v; abCirc.Radius=v end
-})
-FOVTab:AddSlider("FOVOnTarget", {
-    Text     = "On Target Radius",
-    Default  = 60, Min=10, Max=500, Rounding=0, Suffix="px",
-    Callback = function(v) fovCfg.onTarget=v end
-})
-FOVTab:AddSlider("FOVOnBarrier", {
-    Text     = "On Barrier Radius",
-    Default  = 200, Min=10, Max=500, Rounding=0, Suffix="px",
-    Callback = function(v) fovCfg.onBarrier=v end
-})
+FOVTab:AddSlider("FOVSize",      {Text="FOV Size",         Default=150,Min=10,Max=500,Rounding=0,Suffix="px",
+    Callback=function(v) fovCfg.fovSize=v; AB.fov=v; fovCircle.Radius=v; abCirc.Radius=v end})
+FOVTab:AddSlider("FOVOnTarget",  {Text="On Target Radius", Default=60, Min=10,Max=500,Rounding=0,Suffix="px",Callback=function(v) fovCfg.onTarget=v  end})
+FOVTab:AddSlider("FOVOnBarrier", {Text="On Barrier Radius",Default=200,Min=10,Max=500,Rounding=0,Suffix="px",Callback=function(v) fovCfg.onBarrier=v end})
 
 -- =============================================
 --   SILENT AIM
@@ -660,7 +620,6 @@ local silentCfg = {
     circleColor=Color3.fromRGB(0,200,255), circleThick=1.5,
     targetColor=Color3.fromRGB(255,50,50),
 }
-
 local silentCircle = Drawing.new("Circle")
 silentCircle.Thickness=1.5; silentCircle.Filled=false; silentCircle.NumSides=64
 silentCircle.Visible=false; silentCircle.Radius=150; silentCircle.Color=Color3.fromRGB(0,200,255)
@@ -755,26 +714,21 @@ SilentTab:AddToggle("SilentEnabled", {Text="Enable Silent Aim", Default=false, C
     if v then hookSilent(); Library:Notify("Silent Aim Active!",2)
     else unhookSilent(); Library:Notify("Silent Aim Off",2) end
 end})
-
 SilentTab:AddDivider()
 SilentTab:AddLabel("── Filters ──")
-
 SilentTab:AddToggle("SilentVisCheck",  {Text="Visible Check", Default=false, Callback=function(v) silentCfg.visCheck=v  end})
 SilentTab:AddToggle("SilentUseCenter", {Text="Screen Center", Default=false, Callback=function(v) silentCfg.useCenter=v end})
 SilentTab:AddDropdown("SilentPart",    {Text="Target Part",   Values=PARTS,  Default=1, Multi=false, Callback=function(v) silentCfg.part=v end})
-
 SilentTab:AddDivider()
 SilentTab:AddLabel("── Settings ──")
-
-SilentTab:AddSlider("SilentHitChance", {Text="Hit Chance",   Default=100, Min=1,  Max=100,  Rounding=0, Suffix="%",     Callback=function(v) silentCfg.hitChance=v  end})
-SilentTab:AddSlider("SilentPrediction",{Text="Prediction",   Default=0,   Min=0,  Max=100,  Rounding=0, Suffix="x0.05", Callback=function(v) silentCfg.prediction=v end})
-SilentTab:AddSlider("SilentFOV",       {Text="Silent FOV",   Default=150, Min=10, Max=600,  Rounding=0, Suffix="px",    Callback=function(v) silentCfg.fovSize=v; silentCircle.Radius=v end})
-SilentTab:AddSlider("SilentMaxDist",   {Text="Max Distance", Default=200, Min=10, Max=2000, Rounding=0, Suffix="studs", Callback=function(v) silentCfg.maxDist=v end})
+SilentTab:AddSlider("SilentHitChance", {Text="Hit Chance",   Default=100,Min=1, Max=100, Rounding=0,Suffix="%",     Callback=function(v) silentCfg.hitChance=v  end})
+SilentTab:AddSlider("SilentPrediction",{Text="Prediction",   Default=0,  Min=0, Max=100, Rounding=0,Suffix="x0.05", Callback=function(v) silentCfg.prediction=v end})
+SilentTab:AddSlider("SilentFOV",       {Text="Silent FOV",   Default=150,Min=10,Max=600, Rounding=0,Suffix="px",    Callback=function(v) silentCfg.fovSize=v; silentCircle.Radius=v end})
+SilentTab:AddSlider("SilentMaxDist",   {Text="Max Distance", Default=200,Min=10,Max=2000,Rounding=0,Suffix="studs", Callback=function(v) silentCfg.maxDist=v end})
 
 SilentFOVTab:AddToggle("SilentCircleVisible", {Text="Show Silent FOV", Default=false, Callback=function(v)
     silentCfg.circleVisible=v; if not v then silentCircle.Visible=false end
 end})
-
 SilentFOVTab:AddDivider()
 SilentFOVTab:AddLabel("Normal Color"):AddColorPicker("SilentCircleColor", {
     Default=Color3.fromRGB(0,200,255), Title="Silent FOV Color",
@@ -784,7 +738,6 @@ SilentFOVTab:AddLabel("On Target Color"):AddColorPicker("SilentTargetColor", {
     Default=Color3.fromRGB(255,50,50), Title="On Target Color",
     Callback=function(v) silentCfg.targetColor=v end
 })
-
 SilentFOVTab:AddDivider()
 SilentFOVTab:AddSlider("SilentCircleThick",   {Text="Thickness",      Default=15, Min=5,  Max=50,  Rounding=1, Suffix="x0.1",   Callback=function(v) silentCfg.circleThick=v*0.1; silentCircle.Thickness=v*0.1 end})
 SilentFOVTab:AddSlider("SilentCircleFOV",     {Text="Circle Radius",  Default=150,Min=10, Max=600, Rounding=0, Suffix="px",     Callback=function(v) silentCfg.fovSize=v; silentCircle.Radius=v end})
@@ -941,14 +894,12 @@ RagebotTab:AddToggle("RagebotEnabled",{Text="Enable Ragebot",Default=false,Risky
     Callback=function(v) rageCfg.enabled=v; if v then startRagebot(); Library:Notify("Ragebot Active!",2) else stopRagebot(); Library:Notify("Ragebot Off",2) end end})
 RagebotTab:AddToggle("ImprovedManip",{Text="Improved Manipulation",Default=false,
     Callback=function(v) rageCfg.improvedManip=v; Library:Notify(v and "Improved ON!" or "Standard",2) end})
-
 RagebotTab:AddDivider()
 RagebotTab:AddLabel("── Improved Settings ──")
 RagebotTab:AddSlider("ImprovScanAngle",{Text="Scan Angle",Default=15,Min=1,Max=90,Rounding=0,Suffix="°",    Callback=function(v) rageCfg.improv.scanAngle=v  end})
 RagebotTab:AddToggle("ImprovMultiPass",{Text="Multi-Pass Scan",   Default=false,                            Callback=function(v) rageCfg.improv.multiPass=v  end})
 RagebotTab:AddToggle("ImprovSpiral",   {Text="Spiral Scan",       Default=false,                            Callback=function(v) rageCfg.improv.spiralScan=v end})
 RagebotTab:AddToggle("ImprovAdaptDist",{Text="Adaptive Distance", Default=false,                            Callback=function(v) rageCfg.improv.adaptDist=v  end})
-
 RagebotTab:AddDivider()
 RagebotTab:AddLabel("── Vector Y Offsets ──")
 local vecYData = {
@@ -961,29 +912,20 @@ for i,v in ipairs(vecYData) do local key=v.key
     RagebotTab:AddSlider("RGVec"..i.."Y",{Text=v.label,Default=v.default,Min=-50,Max=100,Rounding=0,Suffix=" su",
         Callback=function(val) rageCfg[key]=val; rebuildVectors() end})
 end
-
 RagebotTab:AddDivider()
 RagebotTab:AddLabel("── Vector X Offsets (1-4) ──")
-local vecXData = {
-    {key="v1x",label="Vec 1 X"},{key="v2x",label="Vec 2 X"},
-    {key="v3x",label="Vec 3 X"},{key="v4x",label="Vec 4 X"},
-}
+local vecXData = {{key="v1x",label="Vec 1 X"},{key="v2x",label="Vec 2 X"},{key="v3x",label="Vec 3 X"},{key="v4x",label="Vec 4 X"}}
 for i,v in ipairs(vecXData) do local key=v.key
     RagebotTab:AddSlider("RGVec"..i.."X",{Text=v.label,Default=0,Min=-20,Max=20,Rounding=0,Suffix=" su",
         Callback=function(val) rageCfg[key]=val; rebuildVectors() end})
 end
-
 RagebotTab:AddDivider()
 RagebotTab:AddLabel("── Vector Z Offsets (1-4) ──")
-local vecZData = {
-    {key="v1z",label="Vec 1 Z"},{key="v2z",label="Vec 2 Z"},
-    {key="v3z",label="Vec 3 Z"},{key="v4z",label="Vec 4 Z"},
-}
+local vecZData = {{key="v1z",label="Vec 1 Z"},{key="v2z",label="Vec 2 Z"},{key="v3z",label="Vec 3 Z"},{key="v4z",label="Vec 4 Z"}}
 for i,v in ipairs(vecZData) do local key=v.key
     RagebotTab:AddSlider("RGVec"..i.."Z",{Text=v.label,Default=0,Min=-20,Max=20,Rounding=0,Suffix=" su",
         Callback=function(val) rageCfg[key]=val; rebuildVectors() end})
 end
-
 RagebotTab:AddDivider()
 RagebotTab:AddButton({Text="Reset Vectors",Func=function()
     rageCfg.v1y=12;rageCfg.v2y=16;rageCfg.v3y=20;rageCfg.v4y=24
@@ -991,12 +933,6 @@ RagebotTab:AddButton({Text="Reset Vectors",Func=function()
     rageCfg.v1x=0;rageCfg.v2x=0;rageCfg.v3x=0;rageCfg.v4x=0
     rageCfg.v1z=0;rageCfg.v2z=0;rageCfg.v3z=0;rageCfg.v4z=0
     rebuildVectors(); Library:Notify("Vectors reset!",2)
-end})
-RagebotTab:AddButton({Text="Print Vectors",Func=function()
-    for i,v in ipairs(rageCfg.vectors) do
-        print(("Vec %d: X=%.1f Y=%.1f Z=%.1f"):format(i,v.X,v.Y,v.Z))
-    end
-    Library:Notify("Printed!",2)
 end})
 
 -- =============================================
@@ -1167,13 +1103,6 @@ HitSoundTab:AddSlider("HitSoundPitch",{Text="Pitch",Default=10,Min=1,Max=30,Roun
 
 -- =============================================
 --   ESP SYSTEM
---   Changes vs v1.8:
---   • No outlines / shadow lines at all
---   • Box thickness static 1.5px (not resizable)
---   • Visibility coloring is OPT-IN toggle
---   • Single "Box Color" for default color
---   • Enemy/Visible colors only used when
---     "Color by Visibility" toggle is ON
 -- =============================================
 
 local ESPLeft       = Tabs.ESP:AddLeftTabbox()
@@ -1184,44 +1113,24 @@ local ESPColorsTab  = ESPRight:AddTab("Colors")
 local ESPFiltersTab = ESPRight:AddTab("Filters")
 
 local espCfg = {
-    enabled          = false,
-    box              = false,
-    corners          = false,
-    fill             = false,
-    skeleton         = false,
-    name             = false,
-    weapon           = false,
-    distance         = false,
-    healthBar        = false,
-    healthBarStyle   = "Left",
-    healthBarGradient= false,
-    teamCheck        = false,
-    visibleOnly      = false,
-    -- Visibility coloring toggle (opt-in)
-    colorByVisibility= false,
-    maxDist          = 1000,
-    -- Colors
-    boxColor         = Color3.fromRGB(255, 60, 60),    -- default box color
-    boxEnemy         = Color3.fromRGB(255, 60, 60),    -- used when colorByVis ON + not visible
-    boxVisible       = Color3.fromRGB(60, 220, 60),    -- used when colorByVis ON + visible
-    fillColor        = Color3.fromRGB(255,255,255),
-    fillTrans        = 0.75,
-    skelColor        = Color3.fromRGB(255,220,0),
-    nameColor        = Color3.fromRGB(255,255,255),
-    weaponColor      = Color3.fromRGB(160,160,255),
-    distColor        = Color3.fromRGB(180,180,180),
-    -- Text sizes
-    nameSize         = 13,
-    weaponSize       = 11,
-    distSize         = 11,
-    -- Health bar
-    hpBarWidth       = 3,
-    hpBarOffset      = 5,
-    -- Corner bracket length (fraction of box)
-    cornerLength     = 0.25,
+    enabled=false, box=false, corners=false, fill=false, skeleton=false,
+    name=false, weapon=false, distance=false, healthBar=false,
+    healthBarStyle="Left", healthBarGradient=false,
+    teamCheck=false, visibleOnly=false, colorByVisibility=false, maxDist=1000,
+    boxColor    = Color3.fromRGB(255,60,60),
+    boxEnemy    = Color3.fromRGB(255,60,60),
+    boxVisible  = Color3.fromRGB(60,220,60),
+    fillColor   = Color3.fromRGB(255,255,255),
+    fillTrans   = 0.75,
+    skelColor   = Color3.fromRGB(255,220,0),
+    nameColor   = Color3.fromRGB(255,255,255),
+    weaponColor = Color3.fromRGB(160,160,255),
+    distColor   = Color3.fromRGB(180,180,180),
+    nameSize=13, weaponSize=11, distSize=11,
+    hpBarWidth=3, hpBarOffset=1,
+    cornerLength=0.25,
 }
 
--- ── Drawing Pool ──
 local espPool     = {}
 local espValidSet = {}
 
@@ -1240,7 +1149,6 @@ local SKEL_R6 = {
 }
 local MAX_BONES = math.max(#SKEL_R15, #SKEL_R6)
 
--- Static box thickness — never changes
 local BOX_THICKNESS = 1.5
 
 local function newLine(props)
@@ -1268,23 +1176,17 @@ end
 local function createESPObjects(p)
     if espPool[p] then return end
     local obj = {
-        -- Full box (4 lines, no outline)
         bT=newLine(), bB=newLine(), bL=newLine(), bR=newLine(),
-        -- Corner brackets (8 lines, no outline)
         cTLh=newLine({ZIndex=6}), cTLv=newLine({ZIndex=6}),
         cTRh=newLine({ZIndex=6}), cTRv=newLine({ZIndex=6}),
         cBLh=newLine({ZIndex=6}), cBLv=newLine({ZIndex=6}),
         cBRh=newLine({ZIndex=6}), cBRv=newLine({ZIndex=6}),
-        -- Fill
         fill     = newSquare(),
-        -- Labels
         nameTag  = newText({Size=13}),
         weaponTag= newText({Size=11, Color=Color3.fromRGB(160,160,255)}),
         distTag  = newText({Size=11, Color=Color3.fromRGB(180,180,180)}),
-        -- Health bar
         hpBg     = newLine({ZIndex=5, Thickness=5, Color=Color3.new(0,0,0)}),
         hpFg     = newLine({ZIndex=6, Thickness=3, Color=Color3.fromRGB(60,220,60)}),
-        -- Skeleton
         bones    = {},
     }
     for i=1,MAX_BONES do
@@ -1316,7 +1218,6 @@ local function hideObj(obj)
     for _,bone in ipairs(obj.bones) do bone.Visible=false end
 end
 
--- World-space corner projection (correct bounding box)
 local function getBox(hrp, head)
     local rootPos = hrp.Position
     local headTop = head.Position + Vector3.new(0,0.6,0)
@@ -1367,10 +1268,51 @@ local function getHPColor(pct)
     end
 end
 
+-- Robust weapon detection for Rivals
 local function getWeapon(char)
-    for _,v in ipairs(char:GetChildren()) do
+    if not char then return "None" end
+
+    local p = Players:GetPlayerFromCharacter(char)
+    if p then
+        local n = p:GetAttribute("EquippedItemName")
+                or p:GetAttribute("EquippedItem")
+                or p:GetAttribute("WeaponName")
+                or p:GetAttribute("Weapon")
+        if n and type(n)=="string" and n ~= "" then return n end
+    end
+
+    local cn = char:GetAttribute("EquippedItemName")
+             or char:GetAttribute("EquippedItem")
+             or char:GetAttribute("WeaponName")
+             or char:GetAttribute("Weapon")
+    if cn and type(cn)=="string" and cn ~= "" then return cn end
+
+    if p == lp and FighterController and FighterController.LocalFighter then
+        local ok, name = pcall(function()
+            local item = FighterController.LocalFighter.EquippedItem
+            if item then
+                local v = item:Get("Name")
+                if v then return v end
+                v = item:Get("ObjectName")
+                if v then return v end
+            end
+        end)
+        if ok and name then return name end
+    end
+
+    for _, v in ipairs(char:GetChildren()) do
+        if v:IsA("Model") and v.Name ~= "Animate" then
+            local lower = v.Name:lower()
+            if not lower:find("accessor") and not lower:find("hair") then
+                return v.Name
+            end
+        end
+    end
+
+    for _, v in ipairs(char:GetChildren()) do
         if v:IsA("Tool") then return v.Name end
     end
+
     return "None"
 end
 
@@ -1379,7 +1321,6 @@ local function setLine(ln, x1,y1,x2,y2, color)
     ln.Color=color; ln.Thickness=BOX_THICKNESS; ln.Visible=true
 end
 
--- ── Main ESP render (every frame) ──
 local function renderESP()
     table.clear(espValidSet)
     if not espCfg.enabled then
@@ -1409,7 +1350,6 @@ local function renderESP()
         local headSP,headOn=cam:WorldToViewportPoint(head.Position)
         if not headOn or headSP.Z<=0 then hideObj(obj); continue end
 
-        -- Visibility (only computed when needed)
         local visible=false
         if espCfg.colorByVisibility or espCfg.visibleOnly then
             visible=isVis(camPos,head)
@@ -1419,9 +1359,6 @@ local function renderESP()
         local bx,by,bw,bh=getBox(hrp,head)
         if not bx then hideObj(obj); continue end
 
-        -- Determine box color
-        -- If colorByVisibility is ON: enemy=not visible, visible=visible
-        -- If colorByVisibility is OFF: always use espCfg.boxColor
         local boxCol
         if espCfg.colorByVisibility then
             boxCol = visible and espCfg.boxVisible or espCfg.boxEnemy
@@ -1429,19 +1366,16 @@ local function renderESP()
             boxCol = espCfg.boxColor
         end
 
-        -- ── Full Box ──
         if espCfg.box and not espCfg.corners then
             setLine(obj.bT, bx,     by,     bx+bw, by,     boxCol)
             setLine(obj.bB, bx,     by+bh,  bx+bw, by+bh,  boxCol)
             setLine(obj.bL, bx,     by,     bx,    by+bh,  boxCol)
             setLine(obj.bR, bx+bw,  by,     bx+bw, by+bh,  boxCol)
-            -- hide corners
             obj.cTLh.Visible=false; obj.cTLv.Visible=false
             obj.cTRh.Visible=false; obj.cTRv.Visible=false
             obj.cBLh.Visible=false; obj.cBLv.Visible=false
             obj.cBRh.Visible=false; obj.cBRv.Visible=false
         elseif espCfg.corners then
-            -- hide full box
             obj.bT.Visible=false; obj.bB.Visible=false
             obj.bL.Visible=false; obj.bR.Visible=false
             local cl=math.floor(math.min(bw,bh)*espCfg.cornerLength)
@@ -1462,14 +1396,12 @@ local function renderESP()
             obj.cBRh.Visible=false; obj.cBRv.Visible=false
         end
 
-        -- ── Fill ──
         if espCfg.fill then
             obj.fill.Position=Vector2.new(bx,by); obj.fill.Size=Vector2.new(bw,bh)
             obj.fill.Color=espCfg.fillColor; obj.fill.Transparency=espCfg.fillTrans
             obj.fill.Visible=true
         else obj.fill.Visible=false end
 
-        -- ── Skeleton ──
         if espCfg.skeleton then
             local isR6=char:FindFirstChild("Torso")~=nil
             local bDefs=isR6 and SKEL_R6 or SKEL_R15
@@ -1489,7 +1421,6 @@ local function renderESP()
             for i=#bDefs+1,MAX_BONES do if obj.bones[i] then obj.bones[i].Visible=false end end
         else for _,bone in ipairs(obj.bones) do bone.Visible=false end end
 
-        -- ── Name ──
         if espCfg.name then
             obj.nameTag.Text    =p.DisplayName~="" and p.DisplayName or p.Name
             obj.nameTag.Size    =espCfg.nameSize
@@ -1498,7 +1429,6 @@ local function renderESP()
             obj.nameTag.Visible =true
         else obj.nameTag.Visible=false end
 
-        -- ── Weapon ──
         if espCfg.weapon then
             local nameOff=espCfg.name and (espCfg.nameSize+2) or 0
             obj.weaponTag.Text    ="["..getWeapon(char).."]"
@@ -1508,7 +1438,6 @@ local function renderESP()
             obj.weaponTag.Visible =true
         else obj.weaponTag.Visible=false end
 
-        -- ── Distance ──
         if espCfg.distance then
             obj.distTag.Text    =math.floor(dist).."m"
             obj.distTag.Size    =espCfg.distSize
@@ -1517,7 +1446,6 @@ local function renderESP()
             obj.distTag.Visible =true
         else obj.distTag.Visible=false end
 
-        -- ── Health Bar ──
         if espCfg.healthBar then
             local hp =math.clamp(hum.Health,0,hum.MaxHealth)
             local pct=hum.MaxHealth>0 and (hp/hum.MaxHealth) or 0
@@ -1537,7 +1465,7 @@ local function renderESP()
                 local y=by+bh+bO+bW
                 bgF=Vector2.new(bx,y);    bgT=Vector2.new(bx+bw,y)
                 fgF=Vector2.new(bx,y);    fgT=Vector2.new(bx+bw*pct,y)
-            else -- Top
+            else
                 local y=by-bO-bW
                 bgF=Vector2.new(bx,y);    bgT=Vector2.new(bx+bw,y)
                 fgF=Vector2.new(bx,y);    fgT=Vector2.new(bx+bw*pct,y)
@@ -1547,17 +1475,12 @@ local function renderESP()
         else obj.hpBg.Visible=false; obj.hpFg.Visible=false end
     end
 
-    -- Cleanup players who left
     for p in pairs(espPool) do
         if not espValidSet[p] then destroyESPObjects(p) end
     end
 end
 
 Players.PlayerRemoving:Connect(function(p) destroyESPObjects(p) end)
-
--- =============================================
---   ESP UI
--- =============================================
 
 ESPDisplayTab:AddToggle("ESPEnabled",{Text="Enable ESP",Default=false,Callback=function(v)
     espCfg.enabled=v
@@ -1568,7 +1491,6 @@ ESPDisplayTab:AddToggle("ESPEnabled",{Text="Enable ESP",Default=false,Callback=f
     end
     Library:Notify(v and "ESP Active!" or "ESP Off",2)
 end})
-
 ESPDisplayTab:AddDivider()
 ESPDisplayTab:AddLabel("── Visuals ──")
 ESPDisplayTab:AddToggle("ESPBox",     {Text="Box",            Default=false, Callback=function(v) espCfg.box=v;     if v then espCfg.corners=false end end})
@@ -1579,7 +1501,6 @@ ESPDisplayTab:AddToggle("ESPName",    {Text="Name",           Default=false, Cal
 ESPDisplayTab:AddToggle("ESPWeapon",  {Text="Weapon",         Default=false, Callback=function(v) espCfg.weapon=v   end})
 ESPDisplayTab:AddToggle("ESPDistance",{Text="Distance",       Default=false, Callback=function(v) espCfg.distance=v end})
 ESPDisplayTab:AddToggle("ESPHealthBar",{Text="Health Bar",    Default=false, Callback=function(v) espCfg.healthBar=v end})
-
 ESPDisplayTab:AddDivider()
 ESPDisplayTab:AddLabel("── Text Sizes ──")
 ESPDisplayTab:AddSlider("ESPNameSize",   {Text="Name Size",   Default=13,Min=8,Max=24,Rounding=0,Suffix="px",Callback=function(v) espCfg.nameSize=v   end})
@@ -1588,7 +1509,6 @@ ESPDisplayTab:AddSlider("ESPDistSize",   {Text="Dist Size",   Default=11,Min=8,M
 ESPDisplayTab:AddSlider("ESPFillTrans",  {Text="Fill Alpha",  Default=75,Min=10,Max=99,Rounding=0,Suffix="%", Callback=function(v) espCfg.fillTrans=v/100 end})
 ESPDisplayTab:AddSlider("ESPCornerLen",  {Text="Corner Len",  Default=25,Min=10,Max=50,Rounding=0,Suffix="%", Callback=function(v) espCfg.cornerLength=v/100 end})
 
--- Health Bar Tab
 ESPHealthTab:AddDivider()
 ESPHealthTab:AddLabel("── Health Bar ──")
 ESPHealthTab:AddDropdown("ESPHPStyle",{Text="Bar Position",Values={"Left","Right","Bottom","Top"},Default=1,Multi=false,
@@ -1599,38 +1519,17 @@ ESPHealthTab:AddDivider()
 ESPHealthTab:AddLabel("Green = Full  Yellow = Half  Red = Low",true)
 ESPHealthTab:AddDivider()
 ESPHealthTab:AddSlider("ESPHPWidth", {Text="Bar Width", Default=3,Min=1,Max=10,Rounding=0,Suffix="px",Callback=function(v) espCfg.hpBarWidth=v  end})
-ESPHealthTab:AddSlider("ESPHPOffset",{Text="Bar Offset",Default=5,Min=1,Max=20,Rounding=0,Suffix="px",Callback=function(v) espCfg.hpBarOffset=v end})
+ESPHealthTab:AddSlider("ESPHPOffset",{Text="Bar Offset",Default=1,Min=1,Max=20,Rounding=0,Suffix="px",Callback=function(v) espCfg.hpBarOffset=v end})
 
--- Colors Tab
 ESPColorsTab:AddDivider()
 ESPColorsTab:AddLabel("── Box Color ──")
-
--- Default box color (always shown)
-ESPColorsTab:AddLabel("Box Color"):AddColorPicker("ESPColBox",{
-    Default  = Color3.fromRGB(255,60,60),
-    Title    = "Box Color",
-    Callback = function(v) espCfg.boxColor=v end
-})
-
+ESPColorsTab:AddLabel("Box Color"):AddColorPicker("ESPColBox",{Default=Color3.fromRGB(255,60,60),Title="Box Color",Callback=function(v) espCfg.boxColor=v end})
 ESPColorsTab:AddDivider()
--- Visibility coloring: opt-in toggle
-ESPColorsTab:AddToggle("ESPColorByVis",{
-    Text    = "Color by Visibility",
-    Default = false,
-    Tooltip = "When ON: box turns green if visible, red if not.\nOverrides Box Color above.",
-    Callback= function(v) espCfg.colorByVisibility=v end
-})
-ESPColorsTab:AddLabel("Not Visible Color"):AddColorPicker("ESPColEnemy",{
-    Default  = Color3.fromRGB(255,60,60),
-    Title    = "Not Visible Color",
-    Callback = function(v) espCfg.boxEnemy=v end
-})
-ESPColorsTab:AddLabel("Visible Color"):AddColorPicker("ESPColVisible",{
-    Default  = Color3.fromRGB(60,220,60),
-    Title    = "Visible Color",
-    Callback = function(v) espCfg.boxVisible=v end
-})
-
+ESPColorsTab:AddToggle("ESPColorByVis",{Text="Color by Visibility",Default=false,
+    Tooltip="When ON: box turns green if visible, red if not.\nOverrides Box Color above.",
+    Callback=function(v) espCfg.colorByVisibility=v end})
+ESPColorsTab:AddLabel("Not Visible Color"):AddColorPicker("ESPColEnemy",{Default=Color3.fromRGB(255,60,60),Title="Not Visible Color",Callback=function(v) espCfg.boxEnemy=v end})
+ESPColorsTab:AddLabel("Visible Color"):AddColorPicker("ESPColVisible",{Default=Color3.fromRGB(60,220,60),Title="Visible Color",Callback=function(v) espCfg.boxVisible=v end})
 ESPColorsTab:AddDivider()
 ESPColorsTab:AddLabel("── Element Colors ──")
 ESPColorsTab:AddLabel("Fill"):AddColorPicker("ESPColFill",    {Default=Color3.fromRGB(255,255,255),Title="Fill Color",    Callback=function(v) espCfg.fillColor=v   end})
@@ -1639,7 +1538,6 @@ ESPColorsTab:AddLabel("Name"):AddColorPicker("ESPColName",    {Default=Color3.fr
 ESPColorsTab:AddLabel("Weapon"):AddColorPicker("ESPColWeapon",{Default=Color3.fromRGB(160,160,255),Title="Weapon Color",  Callback=function(v) espCfg.weaponColor=v end})
 ESPColorsTab:AddLabel("Distance"):AddColorPicker("ESPColDist",{Default=Color3.fromRGB(180,180,180),Title="Distance Color",Callback=function(v) espCfg.distColor=v   end})
 
--- Filters Tab
 ESPFiltersTab:AddDivider()
 ESPFiltersTab:AddLabel("── Filters ──")
 ESPFiltersTab:AddToggle("ESPTeamCheck",  {Text="Team Check",   Default=false, Callback=function(v) espCfg.teamCheck=v   end})
@@ -1940,28 +1838,29 @@ RunService.RenderStepped:Connect(function(dt)
         pcall(function() cachedPing=math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
     end
 
-    Library:SetWatermark(("Rivals v1.8 | %dfps | %dms"):format(cachedFPS, cachedPing))
+    Library:SetWatermark(("Rivals v1.9 | %dfps | %dms"):format(cachedFPS, cachedPing))
 
-    -- ESP (every frame, smooth)
     pcall(renderESP)
 
-    -- Aimbot
     if AB.on and CameraController then
         if abDoReact then
             abReactT-=dt; if abReactT<=0 then abDoReact=false end
         end
         if not abDoReact then
             if abTgt and not abTgtValid(abTgt) then
-                abTgt=nil; abLockT=0; abPrevPos=nil; abCurveStart=nil; abCurveProgress=0
+                abTgt=nil; abLockT=0; abPrevPos=nil; abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
             end
             if not abTgt then
                 abTgt=abFind()
-                if abTgt then abLockT=0; abDoReact=true; abReactT=AB.reactTime/1000; abPrevPos=nil; abCurveStart=nil; abCurveProgress=0 end
+                if abTgt then
+                    abLockT=0; abDoReact=true; abReactT=AB.reactTime/1000
+                    abPrevPos=nil; abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
+                end
             end
             if abTgt then
                 abLockT+=dt
                 if abLockT>AB.maxLock then
-                    abTgt=nil; abLockT=0; abPrevPos=nil; abCurveStart=nil; abCurveProgress=0
+                    abTgt=nil; abLockT=0; abPrevPos=nil; abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
                 elseif inFov(abTgt, abEffFov()) then
                     pcall(function()
                         local aimPos=getPredictedPos(abTgt)
@@ -1974,13 +1873,12 @@ RunService.RenderStepped:Connect(function(dt)
                         CameraController:ApplyRotationDelta(Vector2.new(newRot.X-cur.X,angDiff(cur.Y,newRot.Y)))
                     end)
                 else
-                    abTgt=nil; abLockT=0; abPrevPos=nil; abCurveStart=nil; abCurveProgress=0
+                    abTgt=nil; abLockT=0; abPrevPos=nil; abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
                 end
             end
         end
     end
 
-    -- FOV Circle
     if fovCfg.visible then
         local center=fovCfg.useCenter and getScr() or getMousePos()
         fovCircle.Visible=true; fovCircle.Color=fovCfg.color; fovCircle.Position=center
@@ -1993,7 +1891,6 @@ RunService.RenderStepped:Connect(function(dt)
         abCirc.Position=center; abCirc.Radius=abEffFov(); abCirc.Visible=AB.on and AB.drawFov
     else fovCircle.Visible=false; fovHalf.Visible=false; abCirc.Visible=false end
 
-    -- Silent FOV Circle
     if silentCfg.enabled and silentCfg.circleVisible then
         local center=silentCfg.useCenter and getScr() or getMousePos()
         silentCircle.Visible=true; silentCircle.Radius=silentCfg.fovSize
@@ -2021,5 +1918,5 @@ SaveManager:BuildConfigSection(Tabs.UISettings)
 ThemeManager:ApplyToTab(Tabs.UISettings)
 SaveManager:LoadAutoloadConfig()
 
-Library:Notify("Rivals v1.8 | All OFF | RightShift = menu", 5)
-print("[v1.8] Loaded — no outlines, static box, opt-in vis coloring")
+Library:Notify("Rivals v1.9 | All OFF | RightShift = menu", 5)
+print("[v1.9] Loaded - aimbot smoothness fixed, weapon ESP improved, HP offset min 1px")
