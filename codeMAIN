@@ -13,22 +13,17 @@ local lp                = Players.LocalPlayer
 local cam               = ws.CurrentCamera
 
 -- =============================================
---   LOAD WINDUI IMMEDIATELY
+--   LOAD WINDUI (Footagesus)
 -- =============================================
 
-local Wind
-pcall(function()
-    Wind = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footre/WindUI/main/WindUI.lua"))()
+local WindUI
+local ok = pcall(function()
+    WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 end)
-if not Wind then
-    pcall(function()
-        Wind = loadstring(game:HttpGet("https://raw.githubusercontent.com/4n9d/WindUI/main/WindUI.lua"))()
-    end)
-end
-if not Wind then warn("[Rivals] WindUI failed to load"); return end
+if not ok or not WindUI then warn("[Rivals] WindUI failed"); return end
 
 -- =============================================
---   ANTI-CHEAT (all in background)
+--   ANTI-CHEAT (background)
 -- =============================================
 
 task.spawn(function()
@@ -50,8 +45,8 @@ end)
 task.spawn(function()
     task.wait(0.5)
     pcall(function()
-        local fake = Instance.new("RemoteEvent"); fake.Name = "ClientAlert"; fake.Parent = lp
-        local mt = getrawmetatable(game); local old = rawget(mt, "__namecall")
+        local mt = getrawmetatable(game)
+        local old = rawget(mt, "__namecall")
         setreadonly(mt, false)
         mt.__namecall = newcclosure(function(self, ...)
             local m = getnamecallmethod()
@@ -137,23 +132,13 @@ local PMAP = {
 }
 
 -- =============================================
---   GAME MODULES (loaded lazily, never blocking)
+--   GAME MODULES (lazy load)
 -- =============================================
 
-local Mods = {
-    CameraController  = nil,
-    FighterController = nil,
-    DataController    = nil,
-    util              = nil,
-    enums             = nil,
-    CosmeticLibrary   = nil,
-    ItemLibrary       = nil,
-    GunModule         = nil,
-}
+local Mods = {}
 
-local modsLoaded = false
 task.spawn(function()
-    task.wait(2) -- wait for game to fully settle
+    task.wait(2)
     local PS = lp:FindFirstChild("PlayerScripts")
     local RS = ReplicatedStorage
 
@@ -162,7 +147,7 @@ task.spawn(function()
         local child = parent:FindFirstChild(name)
         if not child then return nil end
         local ok, result = pcall(require, child)
-        task.wait(0.05) -- yield between each require
+        task.wait(0.05)
         return ok and result or nil
     end
 
@@ -177,7 +162,6 @@ task.spawn(function()
     Mods.CosmeticLibrary   = tryReq(Modules, "CosmeticLibrary")
     Mods.ItemLibrary       = tryReq(Modules, "ItemLibrary")
 
-    -- GunModule
     task.spawn(function()
         pcall(function()
             local m = PS and PS:FindFirstChild("Modules")
@@ -189,12 +173,10 @@ task.spawn(function()
             end
         end)
     end)
-
-    modsLoaded = true
 end)
 
 -- =============================================
---   REMOTES (found lazily)
+--   REMOTES (lazy)
 -- =============================================
 
 local Rem = {}
@@ -218,7 +200,7 @@ task.spawn(function()
 end)
 
 -- =============================================
---   UTILITY
+--   UTILITIES
 -- =============================================
 
 local function bPart(char, s)
@@ -237,13 +219,8 @@ local function bPart(char, s)
     end
 end
 
-local function getScr()
-    return Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
-end
-
-local function getMouse()
-    return UserInputService:GetMouseLocation()
-end
+local function getScr() return Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2) end
+local function getMouse() return UserInputService:GetMouseLocation() end
 
 local function sameTm(p)
     local ok, r = pcall(function()
@@ -289,7 +266,6 @@ local AB = {
     speed=1.0, speedAttack=1.0, speedScaleFov=50,
     maxLock=3.0, reactTime=100, useCenter=false
 }
-
 local abTgt, abLockT, abReactT = nil, 0, 0
 local abDoReact, abPrevPos, abPrevTick = false, nil, 0
 local abCurveProgress, abCurveStart, abCurveEnd = 0, nil, nil
@@ -310,13 +286,13 @@ local rageCfg = {
     scanAngle=15, multiPass=false, spiral=false, adaptDist=false,
 }
 
-local wbCfg    = {on=false, part="Head"}
-local hsCfg    = {on=false, soundId="rbxassetid://4764109000", vol=1, pitch=1}
-local fovCfg   = {show=false, half=false, color=Color3.fromRGB(255,255,255), size=150, onTarget=60, onBarrier=200, useCenter=false}
-local camCfg   = {fovOn=false, fovVal=80, noShake=false, noSway=false, noBob=false, noJump=false, noTilt=false, forceCross=false, sensOn=false, sens=1, sensADS=1, sensScope=1, sensX=1, sensY=1, vmOn=false, vmX=0, vmY=0, vmZ=0}
-local skyCfg   = {on=false, selected="Default"}
-local skinCfg  = {on=false, weapon=nil, skin="None", wrap="None", charm="None", finish="None", autoLoad=true}
-local miscCfg  = {autoLoad=false, voteMap=MAPS[1], queueMode=QUEUE_MODES[1], autoVote=false}
+local wbCfg = {on=false, part="Head"}
+local hsCfg = {on=false, soundId="rbxassetid://4764109000", vol=1, pitch=1}
+local fovCfg = {show=false, half=false, color=Color3.fromRGB(255,255,255), size=150, onTarget=60, onBarrier=200, useCenter=false}
+local camCfg = {fovOn=false, fovVal=80, noShake=false, noSway=false, noBob=false, noJump=false, noTilt=false, forceCross=false, sensOn=false, sens=1, sensADS=1, sensScope=1, sensX=1, sensY=1, vmOn=false, vmX=0, vmY=0, vmZ=0}
+local skyCfg = {on=false, selected="Default"}
+local skinCfg = {on=false, weapon=nil, skin="None", wrap="None", charm="None", finish="None", autoLoad=true}
+local miscCfg = {autoLoad=false, voteMap=MAPS[1], queueMode=QUEUE_MODES[1], autoVote=false}
 local loadoutCfg = {prim=PRIMARY_WEAPONS[1], sec=SECONDARY_WEAPONS[1], melee=MELEE_WEAPONS[1], util=UTILITY_WEAPONS[1]}
 
 local espCfg = {
@@ -367,9 +343,7 @@ silCirc.Thickness=1.5; silCirc.Visible=false; silCirc.Radius=150
 --   AIMBOT
 -- =============================================
 
-local function abEffFov()
-    return AB.dynFov and AB.fov*(cam.FieldOfView/70) or AB.fov
-end
+local function abEffFov() return AB.dynFov and AB.fov*(cam.FieldOfView/70) or AB.fov end
 
 local function abValid(pt)
     if not pt or not pt.Parent then return false end
@@ -479,7 +453,7 @@ local function rageClosest()
     return tgt,char
 end
 
-local function tryPoint(origin, targetPos, targetChar, sp)
+local function tryPoint(targetPos, targetChar, sp)
     rRp.FilterDescendantsInstances={lp.Character,targetChar}
     local r=ws:Raycast(sp,targetPos-sp,rRp)
     return r==nil or r.Instance:IsDescendantOf(targetChar)
@@ -487,17 +461,17 @@ end
 
 local function rageCalc(origin, targetPos, targetChar)
     rRp.FilterDescendantsInstances={lp.Character,targetChar}
-    if tryPoint(origin,targetPos,targetChar,origin) then return origin,nil end
+    if tryPoint(targetPos,targetChar,origin) then return origin,nil end
     for _,off in next,rageCfg.vectors do
         local sp=origin+off
-        if tryPoint(origin,targetPos,targetChar,sp) then return sp,off.Y end
+        if tryPoint(targetPos,targetChar,sp) then return sp,off.Y end
     end
     if rageCfg.improved and rageCfg.multiPass then
         for _,off in next,rageCfg.vectors do
             for a=-45,45,rageCfg.scanAngle do
                 local r2=math.rad(a)
                 local sp=origin+Vector3.new(off.X*math.cos(r2)-off.Z*math.sin(r2),off.Y,off.X*math.sin(r2)+off.Z*math.cos(r2))
-                if tryPoint(origin,targetPos,targetChar,sp) then return sp,off.Y end
+                if tryPoint(targetPos,targetChar,sp) then return sp,off.Y end
             end
         end
     end
@@ -506,7 +480,7 @@ local function rageCalc(origin, targetPos, targetChar)
             for s=0,11 do
                 local a=(s/12)*math.pi*2
                 local sp=origin+Vector3.new(math.cos(a)*2*layer,h,math.sin(a)*2*layer)
-                if tryPoint(origin,targetPos,targetChar,sp) then return sp,h end
+                if tryPoint(targetPos,targetChar,sp) then return sp,h end
             end
         end
     end
@@ -708,7 +682,6 @@ local function wbStart()
         local hitPart=wbCfg.part=="Head" and tgp.Character:FindFirstChild("Head")
             or tgp.Character:FindFirstChild("UpperTorso") or tgp.Character:FindFirstChild("HumanoidRootPart")
         if not hitPart then return table.unpack(res) end
-        -- desync
         local root=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
         if root and wbConn2==nil then
             wbConn2=RunService.Heartbeat:Connect(function()
@@ -863,7 +836,6 @@ local function doESP()
         if not bx then hideESP(o); continue end
         local bc=espCfg.colorVis and (vis and espCfg.visCol or espCfg.enemyCol) or espCfg.boxCol
 
-        -- box
         if espCfg.box and not espCfg.corners then
             sL(o.bT,bx,by,bx+bw,by,bc);sL(o.bB,bx,by+bh,bx+bw,by+bh,bc)
             sL(o.bL,bx,by,bx,by+bh,bc);sL(o.bR,bx+bw,by,bx+bw,by+bh,bc)
@@ -880,13 +852,11 @@ local function doESP()
             for _,k in ipairs({"bT","bB","bL","bR","cTLh","cTLv","cTRh","cTRv","cBLh","cBLv","cBRh","cBRv"}) do o[k].Visible=false end
         end
 
-        -- fill
         if espCfg.fill then
             o.fill.Position=Vector2.new(bx,by);o.fill.Size=Vector2.new(bw,bh)
             o.fill.Color=espCfg.fillCol;o.fill.Transparency=espCfg.fillAlpha;o.fill.Visible=true
         else o.fill.Visible=false end
 
-        -- skeleton
         if espCfg.skel then
             local isR6=char:FindFirstChild("Torso")~=nil
             local bd=isR6 and SKEL6 or SKEL15
@@ -905,14 +875,12 @@ local function doESP()
             for i=#bd+1,MAXB do if o.bones[i] then o.bones[i].Visible=false end end
         else for _,b in ipairs(o.bones) do b.Visible=false end end
 
-        -- name
         if espCfg.name then
             o.nameT.Text=p.DisplayName~="" and p.DisplayName or p.Name
             o.nameT.Size=espCfg.nameSize;o.nameT.Color=espCfg.nameCol
             o.nameT.Position=Vector2.new(bx+bw/2,by-espCfg.nameSize-4);o.nameT.Visible=true
         else o.nameT.Visible=false end
 
-        -- weapon
         if espCfg.weapon then
             local no=espCfg.name and espCfg.nameSize+2 or 0
             o.weapT.Text="["..getWeap(char).."]"
@@ -920,14 +888,12 @@ local function doESP()
             o.weapT.Position=Vector2.new(bx+bw/2,by-espCfg.weapSize-4-no);o.weapT.Visible=true
         else o.weapT.Visible=false end
 
-        -- dist
         if espCfg.dist then
             o.distT.Text=math.floor(dist).."m"
             o.distT.Size=espCfg.distSize;o.distT.Color=espCfg.distCol
             o.distT.Position=Vector2.new(bx+bw/2,by+bh+4);o.distT.Visible=true
         else o.distT.Visible=false end
 
-        -- hp
         if espCfg.hp then
             local hp=math.clamp(hum.Health,0,hum.MaxHealth)
             local pct=hum.MaxHealth>0 and hp/hum.MaxHealth or 0
@@ -975,7 +941,7 @@ local function restoreSky()
 end
 
 -- =============================================
---   SKINS (lightweight, no require)
+--   SKINS
 -- =============================================
 
 local function saveSkins()
@@ -1038,333 +1004,389 @@ local function installSkinHook()
 end
 
 -- =============================================
---   BUILD UI
+--   BUILD WINDUI (Footagesus API)
 -- =============================================
 
-local Window = Wind.new({
-    Name = "Rivals v2.4",
-    LoadingTitle = "Rivals",
-    LoadingSubtitle = "by anon",
-    ConfigurationSaving = { Enabled = false },
-    KeySystem = false,
+local Window = WindUI:CreateWindow({
+    Title = "Rivals",
+    Icon = "swords",
+    Author = "v2.4",
+    Folder = "RivalsScript",
+    Size = UDim2.fromOffset(580, 450),
+    Transparent = true,
+    Theme = "Dark",
+    SideBarWidth = 160,
+    HasOutline = true,
+    KeySystem = nil,
 })
 
-local TabAimbot  = Window:MakeTab({ Name = "Aimbot",  Icon = "rbxassetid://4483345998" })
-local TabSilent  = Window:MakeTab({ Name = "Silent",  Icon = "rbxassetid://4483345998" })
-local TabRage    = Window:MakeTab({ Name = "Ragebot", Icon = "rbxassetid://4483345998" })
-local TabESP     = Window:MakeTab({ Name = "ESP",     Icon = "rbxassetid://4483345998" })
-local TabCamera  = Window:MakeTab({ Name = "Camera",  Icon = "rbxassetid://4483345998" })
-local TabSkins   = Window:MakeTab({ Name = "Skins",   Icon = "rbxassetid://4483345998" })
-local TabMisc    = Window:MakeTab({ Name = "Misc",    Icon = "rbxassetid://4483345998" })
-local TabSkybox  = Window:MakeTab({ Name = "Skybox",  Icon = "rbxassetid://4483345998" })
-local TabUI      = Window:MakeTab({ Name = "UI",      Icon = "rbxassetid://4483345998" })
+WindUI:SetNotificationLower(true)
+
+local TabAimbot  = Window:Tab({ Title = "Aimbot",  Icon = "crosshair" })
+local TabSilent  = Window:Tab({ Title = "Silent",  Icon = "eye-off" })
+local TabRage    = Window:Tab({ Title = "Ragebot", Icon = "zap" })
+local TabESP     = Window:Tab({ Title = "ESP",     Icon = "scan" })
+local TabCamera  = Window:Tab({ Title = "Camera",  Icon = "video" })
+local TabSkins   = Window:Tab({ Title = "Skins",   Icon = "shirt" })
+local TabMisc    = Window:Tab({ Title = "Misc",    Icon = "settings" })
+local TabSkybox  = Window:Tab({ Title = "Skybox",  Icon = "cloud" })
+local TabUI      = Window:Tab({ Title = "UI",      Icon = "monitor" })
 
 -- =============================================
 --   AIMBOT UI
 -- =============================================
 
-do
-    local s=TabAimbot:AddSection({Name="Aimbot"})
-    s:AddToggle({Name="Enable Aimbot",Default=false,Callback=function(v)
+TabAimbot:Section({ Title = "Aimbot" })
+
+TabAimbot:Toggle({
+    Title = "Enable Aimbot",
+    Default = false,
+    Callback = function(v)
         AB.on=v
         if not v then abTgt=nil;abLockT=0;abDoReact=false;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end
-    end})
-    s:AddDropdown({Name="Aim Part",Default="Head",Options=PARTS,Callback=function(v) AB.part=v end})
-    s:AddDropdown({Name="Lock Mode",Default="Soft",Options={"Soft","Magnet","Curve"},Callback=function(v) AB.lockMode=v;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end})
-    s:AddToggle({Name="Team Check",Default=false,Callback=function(v) AB.team=v end})
-    s:AddToggle({Name="Visible Check",Default=false,Callback=function(v) AB.vis=v end})
-    s:AddToggle({Name="Screen Center",Default=false,Callback=function(v) AB.useCenter=v end})
-    s:AddToggle({Name="Dynamic FOV",Default=false,Callback=function(v) AB.dynFov=v end})
+    end
+})
 
-    local s2=TabAimbot:AddSection({Name="Smoothing"})
-    s2:AddSlider({Name="Base Speed",Min=1,Max=500,Default=100,Color=Color3.fromRGB(255,65,65),Increment=1,ValueName="x0.01",Callback=function(v) AB.speed=v/100 end})
-    s2:AddSlider({Name="Attack Speed",Min=1,Max=500,Default=100,Color=Color3.fromRGB(255,65,65),Increment=1,ValueName="x0.01",Callback=function(v) AB.speedAttack=v/100 end})
-    s2:AddSlider({Name="FOV Scale",Min=0,Max=100,Default=50,Color=Color3.fromRGB(255,65,65),Increment=1,ValueName="%",Callback=function(v) AB.speedScaleFov=v end})
-    s2:AddSlider({Name="Curve Strength",Min=1,Max=400,Default=10,Color=Color3.fromRGB(255,65,65),Increment=1,ValueName="%",Callback=function(v) AB.curvePct=v end})
-    s2:AddSlider({Name="Max Lock Time",Min=1,Max=1000,Default=300,Color=Color3.fromRGB(200,100,255),Increment=1,ValueName="x0.01s",Callback=function(v) AB.maxLock=v/100 end})
-    s2:AddSlider({Name="Reaction Time",Min=0,Max=500,Default=100,Color=Color3.fromRGB(200,100,255),Increment=1,ValueName="ms",Callback=function(v) AB.reactTime=v end})
+TabAimbot:Dropdown({ Title = "Aim Part", Values = PARTS, Value = "Head", Callback = function(v) AB.part=v end })
+TabAimbot:Dropdown({ Title = "Lock Mode", Values = {"Soft","Magnet","Curve"}, Value = "Soft", Callback = function(v) AB.lockMode=v;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end })
+TabAimbot:Toggle({ Title = "Team Check",    Default = false, Callback = function(v) AB.team=v end })
+TabAimbot:Toggle({ Title = "Visible Check", Default = false, Callback = function(v) AB.vis=v end })
+TabAimbot:Toggle({ Title = "Screen Center", Default = false, Callback = function(v) AB.useCenter=v end })
+TabAimbot:Toggle({ Title = "Dynamic FOV",   Default = false, Callback = function(v) AB.dynFov=v end })
 
-    local s3=TabAimbot:AddSection({Name="FOV Circle"})
-    s3:AddToggle({Name="Show FOV Circle",Default=false,Callback=function(v) fovCfg.show=v end})
-    s3:AddToggle({Name="Half Circle",Default=false,Callback=function(v) fovCfg.half=v end})
-    s3:AddToggle({Name="Screen Center",Default=false,Callback=function(v) fovCfg.useCenter=v end})
-    s3:AddSlider({Name="FOV Size",Min=10,Max=500,Default=150,Color=Color3.fromRGB(255,255,100),Increment=1,ValueName="px",Callback=function(v) fovCfg.size=v;AB.fov=v;fovCirc.Radius=v;abCirc.Radius=v end})
-    s3:AddSlider({Name="On Target Radius",Min=10,Max=500,Default=60,Color=Color3.fromRGB(255,255,100),Increment=1,ValueName="px",Callback=function(v) fovCfg.onTarget=v end})
-    s3:AddSlider({Name="On Barrier Radius",Min=10,Max=500,Default=200,Color=Color3.fromRGB(255,255,100),Increment=1,ValueName="px",Callback=function(v) fovCfg.onBarrier=v end})
-    s3:AddColorpicker({Name="FOV Color",Default=Color3.fromRGB(255,255,255),Callback=function(v) fovCfg.color=v;fovCirc.Color=v;fovHalf.Color=v end})
-end
+TabAimbot:Section({ Title = "Smoothing" })
+
+TabAimbot:Slider({ Title = "Base Speed",    Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) AB.speed=v/100 end })
+TabAimbot:Slider({ Title = "Attack Speed",  Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) AB.speedAttack=v/100 end })
+TabAimbot:Slider({ Title = "FOV Scale %",   Value = {Min=0,Max=100,Default=50},  Step = 1, Callback = function(v) AB.speedScaleFov=v end })
+TabAimbot:Slider({ Title = "Curve Strength",Value = {Min=1,Max=400,Default=10},  Step = 1, Callback = function(v) AB.curvePct=v end })
+TabAimbot:Slider({ Title = "Max Lock Time", Value = {Min=1,Max=1000,Default=300},Step = 1, Callback = function(v) AB.maxLock=v/100 end })
+TabAimbot:Slider({ Title = "Reaction (ms)", Value = {Min=0,Max=500,Default=100}, Step = 1, Callback = function(v) AB.reactTime=v end })
+
+TabAimbot:Section({ Title = "FOV Circle" })
+
+TabAimbot:Toggle({ Title = "Show FOV Circle", Default = false, Callback = function(v) fovCfg.show=v end })
+TabAimbot:Toggle({ Title = "Half Circle",     Default = false, Callback = function(v) fovCfg.half=v end })
+TabAimbot:Toggle({ Title = "Circle Center",   Default = false, Callback = function(v) fovCfg.useCenter=v end })
+TabAimbot:Slider({ Title = "FOV Size",        Value = {Min=10,Max=500,Default=150}, Step = 1, Callback = function(v) fovCfg.size=v;AB.fov=v;fovCirc.Radius=v;abCirc.Radius=v end })
+TabAimbot:Slider({ Title = "On Target Radius",Value = {Min=10,Max=500,Default=60},  Step = 1, Callback = function(v) fovCfg.onTarget=v end })
+TabAimbot:Slider({ Title = "On Barrier Radius",Value = {Min=10,Max=500,Default=200},Step = 1, Callback = function(v) fovCfg.onBarrier=v end })
+TabAimbot:Colorpicker({ Title = "FOV Color", Default = Color3.fromRGB(255,255,255), Callback = function(v) fovCfg.color=v;fovCirc.Color=v;fovHalf.Color=v end })
 
 -- =============================================
 --   SILENT AIM UI
 -- =============================================
 
-do
-    local s=TabSilent:AddSection({Name="Silent Aim"})
-    s:AddToggle({Name="Enable Silent Aim",Default=false,Callback=function(v)
-        silCfg.on=v
-        if v then hookSil() else unhookSil() end
-    end})
-    s:AddDropdown({Name="Target Part",Default="Head",Options=PARTS,Callback=function(v) silCfg.part=v end})
-    s:AddToggle({Name="Visible Check",Default=false,Callback=function(v) silCfg.visCheck=v end})
-    s:AddToggle({Name="Screen Center",Default=false,Callback=function(v) silCfg.useCenter=v end})
-    s:AddSlider({Name="Hit Chance",Min=1,Max=100,Default=100,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="%",Callback=function(v) silCfg.hitChance=v end})
-    s:AddSlider({Name="Prediction",Min=0,Max=100,Default=0,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="x0.05",Callback=function(v) silCfg.prediction=v end})
-    s:AddSlider({Name="Silent FOV",Min=10,Max=600,Default=150,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="px",Callback=function(v) silCfg.fov=v;silCirc.Radius=v end})
-    s:AddSlider({Name="Max Distance",Min=10,Max=2000,Default=200,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName=" studs",Callback=function(v) silCfg.maxDist=v end})
+TabSilent:Section({ Title = "Silent Aim" })
 
-    local s2=TabSilent:AddSection({Name="Silent FOV Circle"})
-    s2:AddToggle({Name="Show Circle",Default=false,Callback=function(v) silCfg.showCircle=v;if not v then silCirc.Visible=false end end})
-    s2:AddSlider({Name="Thickness",Min=5,Max=50,Default=15,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="x0.1",Callback=function(v) silCfg.circleThick=v*0.1;silCirc.Thickness=v*0.1 end})
-    s2:AddColorpicker({Name="Normal Color",Default=Color3.fromRGB(0,200,255),Callback=function(v) silCfg.circleColor=v end})
-    s2:AddColorpicker({Name="On Target Color",Default=Color3.fromRGB(255,50,50),Callback=function(v) silCfg.targetColor=v end})
+TabSilent:Toggle({
+    Title = "Enable Silent Aim",
+    Default = false,
+    Callback = function(v) silCfg.on=v; if v then hookSil() else unhookSil() end end
+})
 
-    local s3=TabSilent:AddSection({Name="Hit Sound"})
-    s3:AddToggle({Name="Enable Hit Sound",Default=false,Callback=function(v)
+TabSilent:Dropdown({ Title = "Target Part", Values = PARTS, Value = "Head", Callback = function(v) silCfg.part=v end })
+TabSilent:Toggle({ Title = "Visible Check", Default = false, Callback = function(v) silCfg.visCheck=v end })
+TabSilent:Toggle({ Title = "Screen Center", Default = false, Callback = function(v) silCfg.useCenter=v end })
+TabSilent:Slider({ Title = "Hit Chance %",  Value = {Min=1,Max=100,Default=100}, Step = 1, Callback = function(v) silCfg.hitChance=v end })
+TabSilent:Slider({ Title = "Prediction",    Value = {Min=0,Max=100,Default=0},   Step = 1, Callback = function(v) silCfg.prediction=v end })
+TabSilent:Slider({ Title = "Silent FOV",    Value = {Min=10,Max=600,Default=150},Step = 1, Callback = function(v) silCfg.fov=v;silCirc.Radius=v end })
+TabSilent:Slider({ Title = "Max Distance",  Value = {Min=10,Max=2000,Default=200},Step = 1, Callback = function(v) silCfg.maxDist=v end })
+
+TabSilent:Section({ Title = "Silent FOV Circle" })
+
+TabSilent:Toggle({ Title = "Show Circle", Default = false, Callback = function(v) silCfg.showCircle=v; if not v then silCirc.Visible=false end end })
+TabSilent:Slider({ Title = "Thickness x0.1", Value = {Min=5,Max=50,Default=15}, Step = 1, Callback = function(v) silCfg.circleThick=v*0.1;silCirc.Thickness=v*0.1 end })
+TabSilent:Colorpicker({ Title = "Normal Color",    Default = Color3.fromRGB(0,200,255), Callback = function(v) silCfg.circleColor=v end })
+TabSilent:Colorpicker({ Title = "On Target Color", Default = Color3.fromRGB(255,50,50), Callback = function(v) silCfg.targetColor=v end })
+
+TabSilent:Section({ Title = "Hit Sound" })
+
+TabSilent:Toggle({
+    Title = "Enable Hit Sound",
+    Default = false,
+    Callback = function(v)
         hsCfg.on=v
         if v then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) else stopHS() end
-    end})
-    s3:AddDropdown({Name="Sound",Default=HIT_SOUND_LIST[1],Options=HIT_SOUND_LIST,Callback=function(v)
-        hsCfg.soundId=HIT_SOUNDS[v]
-        if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end
-    end})
-    s3:AddSlider({Name="Volume",Min=1,Max=100,Default=100,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="%",Callback=function(v) hsCfg.vol=v/100;if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end})
-    s3:AddSlider({Name="Pitch",Min=1,Max=30,Default=10,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="x0.1",Callback=function(v) hsCfg.pitch=v*0.1;if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end})
-end
+    end
+})
+TabSilent:Dropdown({
+    Title = "Sound", Values = HIT_SOUND_LIST, Value = HIT_SOUND_LIST[1],
+    Callback = function(v) hsCfg.soundId=HIT_SOUNDS[v]; if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end
+})
+TabSilent:Slider({ Title = "Volume %", Value = {Min=1,Max=100,Default=100}, Step = 1, Callback = function(v) hsCfg.vol=v/100; if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end })
+TabSilent:Slider({ Title = "Pitch x0.1", Value = {Min=1,Max=30,Default=10}, Step = 1, Callback = function(v) hsCfg.pitch=v*0.1; if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end })
 
 -- =============================================
 --   RAGEBOT UI
 -- =============================================
 
-do
-    local s=TabRage:AddSection({Name="Ragebot"})
-    s:AddToggle({Name="Enable Ragebot",Default=false,Callback=function(v)
-        rageCfg.on=v
-        if v then startRage() else stopRage() end
-    end})
-    s:AddToggle({Name="Improved Manipulation",Default=false,Callback=function(v) rageCfg.improved=v end})
+TabRage:Section({ Title = "Ragebot" })
 
-    local s2=TabRage:AddSection({Name="Improved Options"})
-    s2:AddSlider({Name="Scan Angle",Min=1,Max=90,Default=15,Color=Color3.fromRGB(255,100,0),Increment=1,ValueName="°",Callback=function(v) rageCfg.scanAngle=v end})
-    s2:AddToggle({Name="Multi-Pass Scan",Default=false,Callback=function(v) rageCfg.multiPass=v end})
-    s2:AddToggle({Name="Spiral Scan",Default=false,Callback=function(v) rageCfg.spiral=v end})
-    s2:AddToggle({Name="Adaptive Distance",Default=false,Callback=function(v) rageCfg.adaptDist=v end})
+TabRage:Toggle({ Title = "Enable Ragebot", Default = false, Callback = function(v) rageCfg.on=v; if v then startRage() else stopRage() end end })
+TabRage:Toggle({ Title = "Improved Manipulation", Default = false, Callback = function(v) rageCfg.improved=v end })
 
-    local s3=TabRage:AddSection({Name="Vector Y Offsets"})
-    local yk={"v1y","v2y","v3y","v4y","v5y","v6y","v7y","v8y"}
-    local yd={12,16,20,24,28,32,36,40}
-    for i=1,8 do
-        local k=yk[i]
-        s3:AddSlider({Name="Vec "..i.." Y",Min=-50,Max=100,Default=yd[i],Color=Color3.fromRGB(255,100,0),Increment=1,ValueName=" su",Callback=function(v) rageCfg[k]=v;rebuildVec() end})
-    end
+TabRage:Section({ Title = "Improved Options" })
 
-    local s4=TabRage:AddSection({Name="Vector X/Z Offsets"})
-    for i=1,4 do
-        local xk="v"..i.."x"; local zk="v"..i.."z"
-        s4:AddSlider({Name="Vec "..i.." X",Min=-20,Max=20,Default=0,Color=Color3.fromRGB(255,150,0),Increment=1,ValueName=" su",Callback=function(v) rageCfg[xk]=v;rebuildVec() end})
-        s4:AddSlider({Name="Vec "..i.." Z",Min=-20,Max=20,Default=0,Color=Color3.fromRGB(255,150,0),Increment=1,ValueName=" su",Callback=function(v) rageCfg[zk]=v;rebuildVec() end})
-    end
+TabRage:Slider({ Title = "Scan Angle", Value = {Min=1,Max=90,Default=15}, Step = 1, Callback = function(v) rageCfg.scanAngle=v end })
+TabRage:Toggle({ Title = "Multi-Pass Scan",    Default = false, Callback = function(v) rageCfg.multiPass=v end })
+TabRage:Toggle({ Title = "Spiral Scan",        Default = false, Callback = function(v) rageCfg.spiral=v end })
+TabRage:Toggle({ Title = "Adaptive Distance",  Default = false, Callback = function(v) rageCfg.adaptDist=v end })
 
-    local s5=TabRage:AddSection({Name="Actions"})
-    s5:AddButton({Name="Reset Vectors",Callback=function()
+TabRage:Section({ Title = "Vector Y Offsets" })
+
+local yk={"v1y","v2y","v3y","v4y","v5y","v6y","v7y","v8y"}
+local yd={12,16,20,24,28,32,36,40}
+for i=1,8 do
+    local k=yk[i]
+    TabRage:Slider({
+        Title = "Vec "..i.." Y",
+        Value = {Min=-50,Max=100,Default=yd[i]},
+        Step = 1,
+        Callback = function(v) rageCfg[k]=v;rebuildVec() end
+    })
+end
+
+TabRage:Section({ Title = "Vector X/Z Offsets" })
+
+for i=1,4 do
+    local xk="v"..i.."x"; local zk="v"..i.."z"
+    TabRage:Slider({ Title = "Vec "..i.." X", Value = {Min=-20,Max=20,Default=0}, Step = 1, Callback = function(v) rageCfg[xk]=v;rebuildVec() end })
+    TabRage:Slider({ Title = "Vec "..i.." Z", Value = {Min=-20,Max=20,Default=0}, Step = 1, Callback = function(v) rageCfg[zk]=v;rebuildVec() end })
+end
+
+TabRage:Section({ Title = "Actions" })
+
+TabRage:Button({
+    Title = "Reset Vectors",
+    Callback = function()
         for i,k in ipairs(yk) do rageCfg[k]=yd[i] end
         for i=1,4 do rageCfg["v"..i.."x"]=0;rageCfg["v"..i.."z"]=0 end
         rebuildVec()
-        Wind:Notify({Title="Ragebot",Content="Vectors reset!",Duration=2})
-    end})
+        WindUI:Notify({ Title="Ragebot", Content="Vectors reset!", Duration=2 })
+    end
+})
 
-    local s6=TabRage:AddSection({Name="Wallbang"})
-    s6:AddToggle({Name="Enable Wallbang",Default=false,Callback=function(v)
-        wbCfg.on=v
-        if v then wbStart() else wbStop() end
-    end})
-    s6:AddDropdown({Name="Hit Part",Default="Head",Options={"Head","Body"},Callback=function(v) wbCfg.part=v end})
-    s6:AddButton({Name="Find Target",Callback=function()
-        local t=wbFind()
-        Wind:Notify({Title="Wallbang",Content=t and "Target: "..t.Name or "No target",Duration=3})
-    end})
-end
+TabRage:Section({ Title = "Wallbang" })
+
+TabRage:Toggle({ Title = "Enable Wallbang", Default = false, Callback = function(v) wbCfg.on=v; if v then wbStart() else wbStop() end end })
+TabRage:Dropdown({ Title = "Hit Part", Values = {"Head","Body"}, Value = "Head", Callback = function(v) wbCfg.part=v end })
+TabRage:Button({ Title = "Find Target Now", Callback = function()
+    local t=wbFind()
+    WindUI:Notify({ Title="Wallbang", Content=t and "Target: "..t.Name or "No target", Duration=3 })
+end })
 
 -- =============================================
 --   ESP UI
 -- =============================================
 
-do
-    local s=TabESP:AddSection({Name="ESP"})
-    s:AddToggle({Name="Enable ESP",Default=false,Callback=function(v)
+TabESP:Section({ Title = "ESP" })
+
+TabESP:Toggle({
+    Title = "Enable ESP", Default = false,
+    Callback = function(v)
         espCfg.on=v
         if v then for _,p in ipairs(Players:GetPlayers()) do if p~=lp then mkESP(p) end end
         else for _,o in pairs(espPool) do hideESP(o) end end
-    end})
-    s:AddToggle({Name="Box",Default=false,Callback=function(v) espCfg.box=v;if v then espCfg.corners=false end end})
-    s:AddToggle({Name="Corners",Default=false,Callback=function(v) espCfg.corners=v;if v then espCfg.box=false end end})
-    s:AddToggle({Name="Fill",Default=false,Callback=function(v) espCfg.fill=v end})
-    s:AddToggle({Name="Skeleton",Default=false,Callback=function(v) espCfg.skel=v end})
-    s:AddToggle({Name="Name",Default=false,Callback=function(v) espCfg.name=v end})
-    s:AddToggle({Name="Weapon",Default=false,Callback=function(v) espCfg.weapon=v end})
-    s:AddToggle({Name="Distance",Default=false,Callback=function(v) espCfg.dist=v end})
-    s:AddToggle({Name="Health Bar",Default=false,Callback=function(v) espCfg.hp=v end})
+    end
+})
 
-    local s2=TabESP:AddSection({Name="Style"})
-    s2:AddDropdown({Name="HP Bar Side",Default="Left",Options={"Left","Right","Bottom","Top"},Callback=function(v) espCfg.hpStyle=v end})
-    s2:AddToggle({Name="HP Gradient",Default=false,Callback=function(v) espCfg.hpGrad=v end})
-    s2:AddSlider({Name="Name Size",Min=8,Max=24,Default=13,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.nameSize=v end})
-    s2:AddSlider({Name="Weapon Size",Min=8,Max=20,Default=11,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.weapSize=v end})
-    s2:AddSlider({Name="Dist Size",Min=8,Max=20,Default=11,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.distSize=v end})
-    s2:AddSlider({Name="Fill Alpha",Min=10,Max=99,Default=75,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="%",Callback=function(v) espCfg.fillAlpha=v/100 end})
-    s2:AddSlider({Name="Corner Length",Min=10,Max=50,Default=25,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="%",Callback=function(v) espCfg.cornerLen=v/100 end})
-    s2:AddSlider({Name="HP Width",Min=1,Max=10,Default=3,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.hpW=v end})
-    s2:AddSlider({Name="HP Offset",Min=1,Max=20,Default=1,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.hpOff=v end})
+TabESP:Toggle({ Title = "Box",         Default = false, Callback = function(v) espCfg.box=v; if v then espCfg.corners=false end end })
+TabESP:Toggle({ Title = "Corners",     Default = false, Callback = function(v) espCfg.corners=v; if v then espCfg.box=false end end })
+TabESP:Toggle({ Title = "Fill",        Default = false, Callback = function(v) espCfg.fill=v end })
+TabESP:Toggle({ Title = "Skeleton",    Default = false, Callback = function(v) espCfg.skel=v end })
+TabESP:Toggle({ Title = "Name",        Default = false, Callback = function(v) espCfg.name=v end })
+TabESP:Toggle({ Title = "Weapon",      Default = false, Callback = function(v) espCfg.weapon=v end })
+TabESP:Toggle({ Title = "Distance",    Default = false, Callback = function(v) espCfg.dist=v end })
+TabESP:Toggle({ Title = "Health Bar",  Default = false, Callback = function(v) espCfg.hp=v end })
 
-    local s3=TabESP:AddSection({Name="Filters"})
-    s3:AddToggle({Name="Team Check",Default=false,Callback=function(v) espCfg.teamCheck=v end})
-    s3:AddToggle({Name="Visible Only",Default=false,Callback=function(v) espCfg.visOnly=v end})
-    s3:AddToggle({Name="Color by Visibility",Default=false,Callback=function(v) espCfg.colorVis=v end})
-    s3:AddSlider({Name="Max Distance",Min=50,Max=5000,Default=1000,Color=Color3.fromRGB(255,60,60),Increment=50,ValueName="m",Callback=function(v) espCfg.maxDist=v end})
+TabESP:Section({ Title = "Style" })
 
-    local s4=TabESP:AddSection({Name="Colors"})
-    s4:AddColorpicker({Name="Box",Default=Color3.fromRGB(255,60,60),Callback=function(v) espCfg.boxCol=v end})
-    s4:AddColorpicker({Name="Enemy",Default=Color3.fromRGB(255,60,60),Callback=function(v) espCfg.enemyCol=v end})
-    s4:AddColorpicker({Name="Visible",Default=Color3.fromRGB(60,220,60),Callback=function(v) espCfg.visCol=v end})
-    s4:AddColorpicker({Name="Fill",Default=Color3.fromRGB(255,255,255),Callback=function(v) espCfg.fillCol=v end})
-    s4:AddColorpicker({Name="Skeleton",Default=Color3.fromRGB(255,220,0),Callback=function(v) espCfg.skelCol=v end})
-    s4:AddColorpicker({Name="Name",Default=Color3.fromRGB(255,255,255),Callback=function(v) espCfg.nameCol=v end})
-    s4:AddColorpicker({Name="Weapon",Default=Color3.fromRGB(160,160,255),Callback=function(v) espCfg.weapCol=v end})
-    s4:AddColorpicker({Name="Distance",Default=Color3.fromRGB(180,180,180),Callback=function(v) espCfg.distCol=v end})
-end
+TabESP:Dropdown({ Title = "HP Bar Side", Values = {"Left","Right","Bottom","Top"}, Value = "Left", Callback = function(v) espCfg.hpStyle=v end })
+TabESP:Toggle({ Title = "HP Gradient", Default = false, Callback = function(v) espCfg.hpGrad=v end })
+TabESP:Slider({ Title = "Name Size",    Value = {Min=8,Max=24,Default=13}, Step = 1, Callback = function(v) espCfg.nameSize=v end })
+TabESP:Slider({ Title = "Weapon Size",  Value = {Min=8,Max=20,Default=11}, Step = 1, Callback = function(v) espCfg.weapSize=v end })
+TabESP:Slider({ Title = "Dist Size",    Value = {Min=8,Max=20,Default=11}, Step = 1, Callback = function(v) espCfg.distSize=v end })
+TabESP:Slider({ Title = "Fill Alpha %", Value = {Min=10,Max=99,Default=75},Step = 1, Callback = function(v) espCfg.fillAlpha=v/100 end })
+TabESP:Slider({ Title = "Corner Len %", Value = {Min=10,Max=50,Default=25},Step = 1, Callback = function(v) espCfg.cornerLen=v/100 end })
+TabESP:Slider({ Title = "HP Width",     Value = {Min=1,Max=10,Default=3},  Step = 1, Callback = function(v) espCfg.hpW=v end })
+TabESP:Slider({ Title = "HP Offset",    Value = {Min=1,Max=20,Default=1},  Step = 1, Callback = function(v) espCfg.hpOff=v end })
+
+TabESP:Section({ Title = "Filters" })
+
+TabESP:Toggle({ Title = "Team Check",          Default = false, Callback = function(v) espCfg.teamCheck=v end })
+TabESP:Toggle({ Title = "Visible Only",        Default = false, Callback = function(v) espCfg.visOnly=v end })
+TabESP:Toggle({ Title = "Color by Visibility", Default = false, Callback = function(v) espCfg.colorVis=v end })
+TabESP:Slider({ Title = "Max Distance", Value = {Min=50,Max=5000,Default=1000}, Step = 50, Callback = function(v) espCfg.maxDist=v end })
+
+TabESP:Section({ Title = "Colors" })
+
+TabESP:Colorpicker({ Title = "Box",      Default = Color3.fromRGB(255,60,60),  Callback = function(v) espCfg.boxCol=v end })
+TabESP:Colorpicker({ Title = "Enemy",    Default = Color3.fromRGB(255,60,60),  Callback = function(v) espCfg.enemyCol=v end })
+TabESP:Colorpicker({ Title = "Visible",  Default = Color3.fromRGB(60,220,60),  Callback = function(v) espCfg.visCol=v end })
+TabESP:Colorpicker({ Title = "Fill",     Default = Color3.fromRGB(255,255,255),Callback = function(v) espCfg.fillCol=v end })
+TabESP:Colorpicker({ Title = "Skeleton", Default = Color3.fromRGB(255,220,0),  Callback = function(v) espCfg.skelCol=v end })
+TabESP:Colorpicker({ Title = "Name",     Default = Color3.fromRGB(255,255,255),Callback = function(v) espCfg.nameCol=v end })
+TabESP:Colorpicker({ Title = "Weapon",   Default = Color3.fromRGB(160,160,255),Callback = function(v) espCfg.weapCol=v end })
+TabESP:Colorpicker({ Title = "Distance", Default = Color3.fromRGB(180,180,180),Callback = function(v) espCfg.distCol=v end })
 
 -- =============================================
 --   CAMERA UI
 -- =============================================
 
-do
-    local s=TabCamera:AddSection({Name="Camera"})
-    s:AddToggle({Name="FOV Changer",Default=false,Callback=function(v) camCfg.fovOn=v end})
-    s:AddSlider({Name="FOV Value",Min=30,Max=120,Default=80,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="°",Callback=function(v) camCfg.fovVal=v end})
-    s:AddToggle({Name="No Shake",Default=false,Callback=function(v) camCfg.noShake=v end})
-    s:AddToggle({Name="No Sway",Default=false,Callback=function(v) camCfg.noSway=v end})
-    s:AddToggle({Name="No Bobbing",Default=false,Callback=function(v) camCfg.noBob=v end})
-    s:AddToggle({Name="No Jump Effect",Default=false,Callback=function(v) camCfg.noJump=v end})
-    s:AddToggle({Name="No Slide Tilt",Default=false,Callback=function(v) camCfg.noTilt=v end})
-    s:AddToggle({Name="Force Crosshair",Default=false,Callback=function(v) camCfg.forceCross=v end})
+TabCamera:Section({ Title = "Camera" })
 
-    local s2=TabCamera:AddSection({Name="Sensitivity"})
-    s2:AddToggle({Name="Override Sensitivity",Default=false,Callback=function(v) camCfg.sensOn=v end})
-    s2:AddSlider({Name="Sensitivity",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sens=v/100 end})
-    s2:AddSlider({Name="ADS Sens",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensADS=v/100 end})
-    s2:AddSlider({Name="Scoped Sens",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensScope=v/100 end})
-    s2:AddSlider({Name="Sens X",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensX=v/100 end})
-    s2:AddSlider({Name="Sens Y",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensY=v/100 end})
+TabCamera:Toggle({ Title = "FOV Changer", Default = false, Callback = function(v) camCfg.fovOn=v end })
+TabCamera:Slider({ Title = "FOV Value", Value = {Min=30,Max=120,Default=80}, Step = 1, Callback = function(v) camCfg.fovVal=v end })
+TabCamera:Toggle({ Title = "No Shake",        Default = false, Callback = function(v) camCfg.noShake=v end })
+TabCamera:Toggle({ Title = "No Sway",         Default = false, Callback = function(v) camCfg.noSway=v end })
+TabCamera:Toggle({ Title = "No Bobbing",      Default = false, Callback = function(v) camCfg.noBob=v end })
+TabCamera:Toggle({ Title = "No Jump Effect",  Default = false, Callback = function(v) camCfg.noJump=v end })
+TabCamera:Toggle({ Title = "No Slide Tilt",   Default = false, Callback = function(v) camCfg.noTilt=v end })
+TabCamera:Toggle({ Title = "Force Crosshair", Default = false, Callback = function(v) camCfg.forceCross=v end })
 
-    local s3=TabCamera:AddSection({Name="Viewmodel"})
-    s3:AddToggle({Name="Custom Viewmodel",Default=false,Callback=function(v) camCfg.vmOn=v end})
-    s3:AddSlider({Name="X Offset",Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmX=v*0.1 end})
-    s3:AddSlider({Name="Y Offset",Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmY=v*0.1 end})
-    s3:AddSlider({Name="Z Offset",Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmZ=v*0.1 end})
-end
+TabCamera:Section({ Title = "Sensitivity" })
+
+TabCamera:Toggle({ Title = "Override Sensitivity", Default = false, Callback = function(v) camCfg.sensOn=v end })
+TabCamera:Slider({ Title = "Sensitivity %",  Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sens=v/100 end })
+TabCamera:Slider({ Title = "ADS Sens %",     Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensADS=v/100 end })
+TabCamera:Slider({ Title = "Scoped Sens %",  Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensScope=v/100 end })
+TabCamera:Slider({ Title = "Sens X %",       Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensX=v/100 end })
+TabCamera:Slider({ Title = "Sens Y %",       Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensY=v/100 end })
+
+TabCamera:Section({ Title = "Viewmodel" })
+
+TabCamera:Toggle({ Title = "Custom Viewmodel", Default = false, Callback = function(v) camCfg.vmOn=v end })
+TabCamera:Slider({ Title = "X Offset x0.1", Value = {Min=-50,Max=50,Default=0}, Step = 1, Callback = function(v) camCfg.vmX=v*0.1 end })
+TabCamera:Slider({ Title = "Y Offset x0.1", Value = {Min=-50,Max=50,Default=0}, Step = 1, Callback = function(v) camCfg.vmY=v*0.1 end })
+TabCamera:Slider({ Title = "Z Offset x0.1", Value = {Min=-50,Max=50,Default=0}, Step = 1, Callback = function(v) camCfg.vmZ=v*0.1 end })
 
 -- =============================================
 --   SKINS UI
 -- =============================================
 
-do
-    local wl = {}
-    for _,t in ipairs({PRIMARY_WEAPONS,SECONDARY_WEAPONS,MELEE_WEAPONS,UTILITY_WEAPONS}) do
-        for _,n in ipairs(t) do table.insert(wl,n) end
-    end
-    table.sort(wl)
+local wl = {}
+for _,t in ipairs({PRIMARY_WEAPONS,SECONDARY_WEAPONS,MELEE_WEAPONS,UTILITY_WEAPONS}) do
+    for _,n in ipairs(t) do table.insert(wl,n) end
+end
+table.sort(wl)
 
-    local s=TabSkins:AddSection({Name="Skin Unlocker"})
-    s:AddToggle({Name="Enable",Default=false,Callback=function(v)
-        skinCfg.on=v
-        if v then installSkinHook(); if skinCfg.autoLoad then loadSkins() end end
-    end})
-    s:AddToggle({Name="Auto-Load",Default=true,Callback=function(v) skinCfg.autoLoad=v end})
+TabSkins:Section({ Title = "Skin Unlocker" })
 
-    local s2=TabSkins:AddSection({Name="Equip"})
-    s2:AddDropdown({Name="Weapon",Default=wl[1],Options=wl,Callback=function(v) skinCfg.weapon=v end})
-    s2:AddDropdown({Name="Skin",Default="None",Options={"None"},Callback=function(v) skinCfg.skin=v end})
-    s2:AddDropdown({Name="Wrap",Default="None",Options={"None"},Callback=function(v) skinCfg.wrap=v end})
-    s2:AddDropdown({Name="Charm",Default="None",Options={"None"},Callback=function(v) skinCfg.charm=v end})
-    s2:AddDropdown({Name="Finisher",Default="None",Options={"None"},Callback=function(v) skinCfg.finish=v end})
-    s2:AddButton({Name="Equip Selected",Callback=function()
-        if not skinCfg.on then Wind:Notify({Title="Skins",Content="Enable first!",Duration=2});return end
-        if not skinCfg.weapon then Wind:Notify({Title="Skins",Content="Pick a weapon!",Duration=2});return end
+TabSkins:Toggle({
+    Title = "Enable",
+    Default = false,
+    Callback = function(v) skinCfg.on=v; if v then installSkinHook(); if skinCfg.autoLoad then loadSkins() end end end
+})
+TabSkins:Toggle({ Title = "Auto-Load", Default = true, Callback = function(v) skinCfg.autoLoad=v end })
+
+TabSkins:Section({ Title = "Equip Cosmetics" })
+
+TabSkins:Dropdown({ Title = "Weapon",   Values = wl,         Value = wl[1],   Callback = function(v) skinCfg.weapon=v end })
+TabSkins:Dropdown({ Title = "Skin",     Values = {"None"},   Value = "None",  Callback = function(v) skinCfg.skin=v end })
+TabSkins:Dropdown({ Title = "Wrap",     Values = {"None"},   Value = "None",  Callback = function(v) skinCfg.wrap=v end })
+TabSkins:Dropdown({ Title = "Charm",    Values = {"None"},   Value = "None",  Callback = function(v) skinCfg.charm=v end })
+TabSkins:Dropdown({ Title = "Finisher", Values = {"None"},   Value = "None",  Callback = function(v) skinCfg.finish=v end })
+
+TabSkins:Button({
+    Title = "Equip Selected",
+    Callback = function()
+        if not skinCfg.on then WindUI:Notify({Title="Skins",Content="Enable first!",Duration=2});return end
+        if not skinCfg.weapon then WindUI:Notify({Title="Skins",Content="Pick a weapon!",Duration=2});return end
         local c=0
         if skinCfg.skin~="None" then equipSkin(skinCfg.weapon,"Skin",skinCfg.skin);c=c+1 end
         if skinCfg.wrap~="None" then equipSkin(skinCfg.weapon,"Wrap",skinCfg.wrap);c=c+1 end
         if skinCfg.charm~="None" then equipSkin(skinCfg.weapon,"Charm",skinCfg.charm);c=c+1 end
         if skinCfg.finish~="None" then equipSkin(skinCfg.weapon,"Finisher",skinCfg.finish);c=c+1 end
-        Wind:Notify({Title="Skins",Content=c>0 and "Equipped "..c.." item(s)" or "Nothing selected",Duration=2})
-    end})
-    s2:AddButton({Name="Unequip All on Weapon",Callback=function()
+        WindUI:Notify({Title="Skins",Content=c>0 and "Equipped "..c.." item(s)" or "Nothing selected",Duration=2})
+    end
+})
+TabSkins:Button({
+    Title = "Unequip All on Weapon",
+    Callback = function()
         if not skinCfg.weapon then return end
         equipped[skinCfg.weapon]=nil; saveSkins()
-        Wind:Notify({Title="Skins",Content="Unequipped!",Duration=2})
-    end})
+        WindUI:Notify({Title="Skins",Content="Unequipped!",Duration=2})
+    end
+})
 
-    local s3=TabSkins:AddSection({Name="Config"})
-    s3:AddButton({Name="Save",Callback=function() saveSkins();Wind:Notify({Title="Skins",Content="Saved!",Duration=2}) end})
-    s3:AddButton({Name="Load",Callback=function() loadSkins();Wind:Notify({Title="Skins",Content="Loaded!",Duration=2}) end})
-    s3:AddButton({Name="Reset All",Callback=function() equipped={};saveSkins();Wind:Notify({Title="Skins",Content="Reset!",Duration=2}) end})
+TabSkins:Section({ Title = "Config" })
 
-    -- auto load skins in background
-    task.spawn(function()
-        task.wait(3)
-        if readfile and isfile and isfile(skinPath) then
-            installSkinHook(); loadSkins()
-            local n=0; for _ in pairs(equipped) do n=n+1 end
-            Wind:Notify({Title="Skins",Content="Auto-loaded ("..n.." weapons)",Duration=3})
-        end
-    end)
-end
+TabSkins:Button({ Title = "Save",      Callback = function() saveSkins();WindUI:Notify({Title="Skins",Content="Saved!",Duration=2}) end })
+TabSkins:Button({ Title = "Load",      Callback = function() loadSkins();WindUI:Notify({Title="Skins",Content="Loaded!",Duration=2}) end })
+TabSkins:Button({ Title = "Reset All", Callback = function() equipped={};saveSkins();WindUI:Notify({Title="Skins",Content="Reset!",Duration=2}) end })
+
+task.spawn(function()
+    task.wait(3)
+    if readfile and isfile and isfile(skinPath) then
+        installSkinHook(); loadSkins()
+        local n=0; for _ in pairs(equipped) do n=n+1 end
+        WindUI:Notify({Title="Skins",Content="Auto-loaded ("..n.." weapons)",Duration=3})
+    end
+end)
 
 -- =============================================
 --   MISC UI
 -- =============================================
 
-do
-    local s=TabMisc:AddSection({Name="Loadout"})
-    s:AddDropdown({Name="Primary",Default=PRIMARY_WEAPONS[1],Options=PRIMARY_WEAPONS,Callback=function(v) loadoutCfg.prim=v end})
-    s:AddDropdown({Name="Secondary",Default=SECONDARY_WEAPONS[1],Options=SECONDARY_WEAPONS,Callback=function(v) loadoutCfg.sec=v end})
-    s:AddDropdown({Name="Melee",Default=MELEE_WEAPONS[1],Options=MELEE_WEAPONS,Callback=function(v) loadoutCfg.melee=v end})
-    s:AddDropdown({Name="Utility",Default=UTILITY_WEAPONS[1],Options=UTILITY_WEAPONS,Callback=function(v) loadoutCfg.util=v end})
-    s:AddButton({Name="Apply Loadout",Callback=function()
+TabMisc:Section({ Title = "Loadout" })
+
+TabMisc:Dropdown({ Title = "Primary",   Values = PRIMARY_WEAPONS,   Value = PRIMARY_WEAPONS[1],   Callback = function(v) loadoutCfg.prim=v end })
+TabMisc:Dropdown({ Title = "Secondary", Values = SECONDARY_WEAPONS, Value = SECONDARY_WEAPONS[1], Callback = function(v) loadoutCfg.sec=v end })
+TabMisc:Dropdown({ Title = "Melee",     Values = MELEE_WEAPONS,     Value = MELEE_WEAPONS[1],     Callback = function(v) loadoutCfg.melee=v end })
+TabMisc:Dropdown({ Title = "Utility",   Values = UTILITY_WEAPONS,   Value = UTILITY_WEAPONS[1],   Callback = function(v) loadoutCfg.util=v end })
+
+TabMisc:Button({
+    Title = "Apply Loadout",
+    Callback = function()
         pcall(function()
             if Rem.PickWeapons then
                 Rem.PickWeapons:FireServer({loadoutCfg.prim,loadoutCfg.sec,loadoutCfg.melee,loadoutCfg.util})
-                Wind:Notify({Title="Misc",Content="Loadout applied!",Duration=2})
+                WindUI:Notify({Title="Misc",Content="Loadout applied!",Duration=2})
             end
         end)
-    end})
-    s:AddToggle({Name="Auto Apply on Spawn",Default=false,Callback=function(v) miscCfg.autoLoad=v end})
+    end
+})
+TabMisc:Toggle({ Title = "Auto Apply on Spawn", Default = false, Callback = function(v) miscCfg.autoLoad=v end })
 
-    lp.CharacterAdded:Connect(function()
-        if miscCfg.autoLoad then
-            task.wait(1)
-            pcall(function()
-                if Rem.PickWeapons then
-                    Rem.PickWeapons:FireServer({loadoutCfg.prim,loadoutCfg.sec,loadoutCfg.melee,loadoutCfg.util})
-                end
-            end)
-        end
-    end)
-
-    local s2=TabMisc:AddSection({Name="Queue"})
-    s2:AddDropdown({Name="Mode",Default=QUEUE_MODES[1],Options=QUEUE_MODES,Callback=function(v) miscCfg.queueMode=v end})
-    s2:AddButton({Name="Join Queue",Callback=function()
+lp.CharacterAdded:Connect(function()
+    if miscCfg.autoLoad then
+        task.wait(1)
         pcall(function()
-            if Rem.Queue then Rem.Queue:InvokeServer(miscCfg.queueMode);Wind:Notify({Title="Misc",Content="Joined!",Duration=2}) end
+            if Rem.PickWeapons then
+                Rem.PickWeapons:FireServer({loadoutCfg.prim,loadoutCfg.sec,loadoutCfg.melee,loadoutCfg.util})
+            end
         end)
-    end})
+    end
+end)
 
-    local s3=TabMisc:AddSection({Name="Map Vote"})
-    s3:AddDropdown({Name="Map",Default=MAPS[1],Options=MAPS,Callback=function(v) miscCfg.voteMap=v end})
-    s3:AddButton({Name="Vote",Callback=function()
+TabMisc:Section({ Title = "Queue" })
+
+TabMisc:Dropdown({ Title = "Mode", Values = QUEUE_MODES, Value = QUEUE_MODES[1], Callback = function(v) miscCfg.queueMode=v end })
+TabMisc:Button({
+    Title = "Join Queue",
+    Callback = function()
         pcall(function()
-            if Rem.Vote then Rem.Vote:FireServer(miscCfg.voteMap);Wind:Notify({Title="Misc",Content="Voted!",Duration=2}) end
+            if Rem.Queue then Rem.Queue:InvokeServer(miscCfg.queueMode); WindUI:Notify({Title="Misc",Content="Joined!",Duration=2}) end
         end)
-    end})
-    s3:AddToggle({Name="Auto Vote",Default=false,Callback=function(v)
+    end
+})
+
+TabMisc:Section({ Title = "Map Vote" })
+
+TabMisc:Dropdown({ Title = "Map", Values = MAPS, Value = MAPS[1], Callback = function(v) miscCfg.voteMap=v end })
+TabMisc:Button({
+    Title = "Vote",
+    Callback = function()
+        pcall(function()
+            if Rem.Vote then Rem.Vote:FireServer(miscCfg.voteMap); WindUI:Notify({Title="Misc",Content="Voted!",Duration=2}) end
+        end)
+    end
+})
+TabMisc:Toggle({
+    Title = "Auto Vote",
+    Default = false,
+    Callback = function(v)
         autoVoteActive=false; task.wait(0.1)
         if v then
             autoVoteActive=true
@@ -1375,35 +1397,38 @@ do
                 end
             end)
         end
-    end})
-end
+    end
+})
 
 -- =============================================
 --   SKYBOX UI
 -- =============================================
 
-do
-    local s=TabSkybox:AddSection({Name="Skybox"})
-    s:AddToggle({Name="Enable",Default=false,Callback=function(v)
-        skyCfg.on=v
-        if v then applySky(skyCfg.selected) else restoreSky() end
-    end})
-    s:AddDropdown({Name="Skybox",Default="Default",Options=SKYBOX_LIST,Callback=function(v)
-        skyCfg.selected=v; if skyCfg.on then applySky(v) end
-    end})
-    s:AddButton({Name="Apply",Callback=function()
-        if skyCfg.on then applySky(skyCfg.selected) end
-    end})
-    s:AddButton({Name="Restore",Callback=function() restoreSky() end})
-end
+TabSkybox:Section({ Title = "Skybox" })
+
+TabSkybox:Toggle({
+    Title = "Enable",
+    Default = false,
+    Callback = function(v) skyCfg.on=v; if v then applySky(skyCfg.selected) else restoreSky() end end
+})
+TabSkybox:Dropdown({
+    Title = "Skybox",
+    Values = SKYBOX_LIST,
+    Value = "Default",
+    Callback = function(v) skyCfg.selected=v; if skyCfg.on then applySky(v) end end
+})
+TabSkybox:Button({ Title = "Apply",   Callback = function() if skyCfg.on then applySky(skyCfg.selected) end end })
+TabSkybox:Button({ Title = "Restore", Callback = function() restoreSky() end })
 
 -- =============================================
 --   UI TAB
 -- =============================================
 
-do
-    local s=TabUI:AddSection({Name="Script"})
-    s:AddButton({Name="Unload",Callback=function()
+TabUI:Section({ Title = "Script" })
+
+TabUI:Button({
+    Title = "Unload Script",
+    Callback = function()
         AB.on=false; rageCfg.on=false; wbCfg.on=false
         espCfg.on=false; autoVoteActive=false
         stopRage(); stopHS(); unhookSil(); wbStop()
@@ -1411,9 +1436,9 @@ do
         pcall(function() fovCirc:Remove();fovHalf:Remove();silCirc:Remove();abCirc:Remove() end)
         restoreSky()
         pcall(function() RunService:UnbindFromRenderStep("__wbR") end)
-        Wind:Destroy()
-    end})
-end
+        Window:Destroy()
+    end
+})
 
 -- =============================================
 --   MAIN LOOP
@@ -1422,10 +1447,8 @@ end
 RunService.RenderStepped:Connect(function(dt)
     cam = ws.CurrentCamera
 
-    -- ESP
     pcall(doESP)
 
-    -- Camera
     pcall(function()
         local CC=Mods.CameraController; if not CC then return end
         if camCfg.fovOn then CC._base_fov=camCfg.fovVal end
@@ -1448,47 +1471,47 @@ RunService.RenderStepped:Connect(function(dt)
         if camCfg.vmOn then CC.ViewModelOffsetCFrame=CFrame.new(camCfg.vmX,camCfg.vmY,camCfg.vmZ) end
     end)
 
-    -- Aimbot
     if AB.on then
-        local CC=Mods.CameraController; if not CC then return end
-        if abDoReact then
-            abReactT=abReactT-dt
-            if abReactT<=0 then abDoReact=false end
-        end
-        if not abDoReact then
-            if abTgt and not abValid(abTgt) then
-                abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
+        local CC=Mods.CameraController
+        if CC then
+            if abDoReact then
+                abReactT=abReactT-dt
+                if abReactT<=0 then abDoReact=false end
             end
-            if not abTgt then
-                abTgt=abFind()
-                if abTgt then
-                    abLockT=0;abDoReact=true;abReactT=AB.reactTime/1000
-                    abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
+            if not abDoReact then
+                if abTgt and not abValid(abTgt) then
+                    abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
                 end
-            end
-            if abTgt then
-                abLockT=abLockT+dt
-                if abLockT>AB.maxLock then
-                    abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
-                elseif inFov(abTgt,abEffFov()) then
-                    pcall(function()
-                        local ap=getPred(abTgt)
-                        local du=(ap-cam.CFrame.Position).Unit
-                        local tR=Vector2.new(math.asin(math.clamp(du.Y,-1,1)),math.atan2(-du.X,-du.Z))
-                        local cur=CC.Rotation
-                        local sp=cam:WorldToViewportPoint(ap)
-                        local sd=(Vector2.new(sp.X,sp.Y)-getScr()).Magnitude
-                        local nr=smartLock(tR,cur,dt,sd,abEffFov())
-                        CC:ApplyRotationDelta(Vector2.new(nr.X-cur.X,angDiff(cur.Y,nr.Y)))
-                    end)
-                else
-                    abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
+                if not abTgt then
+                    abTgt=abFind()
+                    if abTgt then
+                        abLockT=0;abDoReact=true;abReactT=AB.reactTime/1000
+                        abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
+                    end
+                end
+                if abTgt then
+                    abLockT=abLockT+dt
+                    if abLockT>AB.maxLock then
+                        abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
+                    elseif inFov(abTgt,abEffFov()) then
+                        pcall(function()
+                            local ap=getPred(abTgt)
+                            local du=(ap-cam.CFrame.Position).Unit
+                            local tR=Vector2.new(math.asin(math.clamp(du.Y,-1,1)),math.atan2(-du.X,-du.Z))
+                            local cur=CC.Rotation
+                            local sp=cam:WorldToViewportPoint(ap)
+                            local sd=(Vector2.new(sp.X,sp.Y)-getScr()).Magnitude
+                            local nr=smartLock(tR,cur,dt,sd,abEffFov())
+                            CC:ApplyRotationDelta(Vector2.new(nr.X-cur.X,angDiff(cur.Y,nr.Y)))
+                        end)
+                    else
+                        abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
+                    end
                 end
             end
         end
     end
 
-    -- FOV circle
     if fovCfg.show then
         local center=fovCfg.useCenter and getScr() or getMouse()
         fovCirc.Visible=true;fovCirc.Color=fovCfg.color;fovCirc.Position=center
@@ -1501,7 +1524,6 @@ RunService.RenderStepped:Connect(function(dt)
         abCirc.Position=center;abCirc.Radius=abEffFov();abCirc.Visible=AB.on
     else fovCirc.Visible=false;fovHalf.Visible=false;abCirc.Visible=false end
 
-    -- Silent circle
     if silCfg.on and silCfg.showCircle then
         local center=silCfg.useCenter and getScr() or getMouse()
         silCirc.Visible=true;silCirc.Radius=silCfg.fov
@@ -1512,7 +1534,7 @@ RunService.RenderStepped:Connect(function(dt)
     else silCirc.Visible=false end
 end)
 
-Wind:Notify({Title="Rivals v2.4",Content="Loaded! No freeze.",Duration=4})
-print("[Rivals v2.4] Loaded")
+WindUI:Notify({ Title = "Rivals v2.4", Content = "Loaded successfully!", Duration = 4 })
+print("[Rivals v2.4] Loaded with Footagesus WindUI")
 
 end)
