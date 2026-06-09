@@ -1,41 +1,75 @@
--- =============================================
---   Rivals Script v2.4 — WindUI Port (Fixed)
--- =============================================
-
 task.spawn(function()
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local function sc(s)
-    local ok, r = pcall(function() return cloneref(s) end)
-    return ok and r or s
-end
-
-local Players           = sc(game:GetService("Players"))
-local RunService        = sc(game:GetService("RunService"))
-local ReplicatedStorage = sc(game:GetService("ReplicatedStorage"))
-local UserInputService  = sc(game:GetService("UserInputService"))
-local Lighting          = sc(game:GetService("Lighting"))
-local HttpService       = sc(game:GetService("HttpService"))
-local ws                = sc(game:GetService("Workspace"))
+local Players           = game:GetService("Players")
+local RunService        = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService  = game:GetService("UserInputService")
+local Lighting          = game:GetService("Lighting")
+local HttpService       = game:GetService("HttpService")
+local ws                = game:GetService("Workspace")
 local lp                = Players.LocalPlayer
 local cam               = ws.CurrentCamera
 
 -- =============================================
---   ANTI-CHEAT BYPASS
+--   LOAD WINDUI IMMEDIATELY
 -- =============================================
 
+local Wind
 pcall(function()
-    local oldSetMeta
-    oldSetMeta = hookfunction(getrenv().setmetatable, newcclosure(function(Table, Metatable)
-        if Metatable and typeof(Metatable) == "table" and rawget(Metatable, "__mode") == "kv" then
-            local ok, trace = pcall(debug.traceback)
-            if ok and trace and trace:find("MiscellaneousController") then
-                return oldSetMeta({1,2,3}, {})
+    Wind = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footre/WindUI/main/WindUI.lua"))()
+end)
+if not Wind then
+    pcall(function()
+        Wind = loadstring(game:HttpGet("https://raw.githubusercontent.com/4n9d/WindUI/main/WindUI.lua"))()
+    end)
+end
+if not Wind then warn("[Rivals] WindUI failed to load"); return end
+
+-- =============================================
+--   ANTI-CHEAT (all in background)
+-- =============================================
+
+task.spawn(function()
+    task.wait(0.5)
+    pcall(function()
+        local oldSetMeta
+        oldSetMeta = hookfunction(getrenv().setmetatable, newcclosure(function(T, M)
+            if M and typeof(M) == "table" and rawget(M, "__mode") == "kv" then
+                local ok, tr = pcall(debug.traceback)
+                if ok and tr and tr:find("MiscellaneousController") then
+                    return oldSetMeta({1,2,3}, {})
+                end
             end
-        end
-        return oldSetMeta(Table, Metatable)
-    end))
+            return oldSetMeta(T, M)
+        end))
+    end)
+end)
+
+task.spawn(function()
+    task.wait(0.5)
+    pcall(function()
+        local fake = Instance.new("RemoteEvent"); fake.Name = "ClientAlert"; fake.Parent = lp
+        local mt = getrawmetatable(game); local old = rawget(mt, "__namecall")
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self, ...)
+            local m = getnamecallmethod()
+            if self == lp and (m == "Kick" or m == "kick") then return end
+            if m == "Shutdown" then return end
+            return old(self, ...)
+        end)
+        setreadonly(mt, true)
+    end)
+end)
+
+task.spawn(function()
+    task.wait(1)
+    pcall(function()
+        local conns = {}
+        pcall(function() conns = getconnections(game:GetService("ScriptContext").Error) end)
+        for _, c in ipairs(conns) do pcall(function() c:Disable() end) end
+    end)
 end)
 
 task.spawn(function()
@@ -45,7 +79,7 @@ task.spawn(function()
     local idx = 0
     for _, v in ipairs(gc) do
         idx += 1
-        if idx % 300 == 0 then task.wait() end
+        if idx % 500 == 0 then task.wait() end
         if typeof(v) ~= "function" then continue end
         local ok2, src = pcall(debug.info, v, "s")
         if ok2 and type(src) == "string" and src:find("AnalyticsPipelineController") then
@@ -54,202 +88,32 @@ task.spawn(function()
     end
 end)
 
-task.spawn(function()
-    task.wait(1)
-    pcall(function()
-        local r = ReplicatedStorage:FindFirstChild("Remotes")
-        if not r then return end
-        r = r:FindFirstChild("AnalyticsPipeline"); if not r then return end
-        r = r:FindFirstChild("RemoteEvent"); if not r then return end
-        local conns = {}
-        pcall(function() conns = getconnections(r.OnClientEvent) end)
-        for _, conn in ipairs(conns) do
-            if conn and conn.Function then pcall(hookfunction, conn.Function, newcclosure(function() end)) end
-        end
-    end)
-end)
-
-task.spawn(function()
-    task.wait(1)
-    pcall(function()
-        local conns = {}
-        pcall(function() conns = getconnections(game:GetService("ScriptContext").Error) end)
-        for _, conn in ipairs(conns) do pcall(function() conn:Disable() end) end
-    end)
-end)
-
-task.spawn(function()
-    task.wait(0.5)
-    pcall(function()
-        local fake = Instance.new("RemoteEvent"); fake.Name = "ClientAlert"; fake.Parent = lp
-        local pmt = getrawmetatable(lp); local oldnc = rawget(pmt, "__namecall")
-        setreadonly(pmt, false)
-        pmt.__namecall = newcclosure(function(self, ...)
-            if getnamecallmethod() == "WaitForChild" and select(1,...) == "ClientAlert" then return fake end
-            return oldnc(self, ...)
-        end)
-        setreadonly(pmt, true)
-        local mt = getrawmetatable(game); local old = rawget(mt, "__namecall")
-        setreadonly(mt, false)
-        mt.__namecall = newcclosure(function(self, ...)
-            local m = getnamecallmethod()
-            if self == lp and (m == "Kick" or m == "kick") then return end
-            if m == "Shutdown" then return end
-            if m == "FireServer" and self == fake then return end
-            return old(self, ...)
-        end)
-        setreadonly(mt, true)
-    end)
-end)
-
-task.spawn(function()
-    task.wait(0.5)
-    pcall(function()
-        for _, name in ipairs({"Kick","kick"}) do
-            local fn = lp[name]
-            if type(fn) == "function" then
-                local oldkick
-                oldkick = hookfunction(fn, newcclosure(function(self, ...)
-                    if self == lp then return end
-                    return oldkick(self, ...)
-                end))
-            end
-        end
-    end)
-end)
-
-task.spawn(function()
-    task.wait(3)
-    pcall(function()
-        local ok, gc = pcall(getgc, false)
-        if not ok or not gc then return end
-        local rf = game:GetService("ReplicatedFirst")
-        local ls3 = rf:FindFirstChild("LocalScript3")
-        if not ls3 then return end
-        local idx = 0
-        for _, f in ipairs(gc) do
-            idx += 1
-            if idx % 300 == 0 then task.wait() end
-            if typeof(f) ~= "function" then continue end
-            local ok3, e = pcall(getfenv, f)
-            if not ok3 or not e then continue end
-            local s2 = rawget(e, "script")
-            if not s2 then continue end
-            if s2 ~= ls3 and not tostring(s2):find("LoadingScreen") then continue end
-            local ok4, cs = pcall(debug.getconstants, f)
-            if not ok4 or not cs then continue end
-            for _, k in ipairs(cs) do
-                if type(k) == "string" and (k:find("TakeTheL") or k:find("ban") or k:find("kick")) then
-                    pcall(hookfunction, f, function() end)
-                    break
-                end
-            end
-        end
-    end)
-end)
-
 -- =============================================
---   Wait for character
--- =============================================
-
-if not lp.Character then
-    pcall(function() lp.CharacterAdded:Wait() end)
-    task.wait(0.5)
-end
-
-local PlayerScripts = lp:FindFirstChild("PlayerScripts") or lp:WaitForChild("PlayerScripts", 10)
-if not PlayerScripts then warn("[Rivals] No PlayerScripts"); return end
-
--- =============================================
---   Load WindUI FIRST before anything else
--- =============================================
-
-local Wind = nil
-local ok_wind, err_wind = pcall(function()
-    Wind = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footre/WindUI/main/WindUI.lua"))()
-end)
-
-if not ok_wind or not Wind then
-    -- try backup URL
-    pcall(function()
-        Wind = loadstring(game:HttpGet("https://raw.githubusercontent.com/4n9d/WindUI/main/WindUI.lua"))()
-    end)
-end
-
-if not Wind then
-    warn("[Rivals] WindUI failed: " .. tostring(err_wind))
-    return
-end
-
--- =============================================
---   Now load game modules in background
--- =============================================
-
-local Controllers = PlayerScripts:FindFirstChild("Controllers")
-local Modules     = ReplicatedStorage:FindFirstChild("Modules")
-
-local CameraController, FighterController, util, enums, GunModule
-local CosmeticLibrary, ItemLibrary, DataController
-
--- Load modules in background, yielding between each
-task.spawn(function()
-    task.wait(0.1)
-    if Controllers then
-        pcall(function() CameraController  = require(Controllers:FindFirstChild("CameraController")) end)
-        task.wait(0.05)
-        pcall(function() FighterController = require(Controllers:FindFirstChild("FighterController")) end)
-        task.wait(0.05)
-        pcall(function() DataController    = require(Controllers:FindFirstChild("PlayerDataController")) end)
-        task.wait(0.05)
-    end
-    if Modules then
-        pcall(function() util            = require(Modules:FindFirstChild("Utility")) end)
-        task.wait(0.05)
-        pcall(function() enums           = require(Modules:FindFirstChild("EnumLibrary")) end)
-        task.wait(0.05)
-        pcall(function() CosmeticLibrary = require(Modules:FindFirstChild("CosmeticLibrary")) end)
-        task.wait(0.05)
-        pcall(function() ItemLibrary     = require(Modules:FindFirstChild("ItemLibrary")) end)
-        task.wait(0.05)
-    end
-    pcall(function()
-        local m = PlayerScripts:FindFirstChild("Modules")
-        if m then
-            local it = m:FindFirstChild("ItemTypes")
-            if it then
-                local g = it:FindFirstChild("Gun")
-                if g then GunModule = require(g) end
-            end
-        end
-    end)
-    task.wait(0.05)
-    if enums and enums.WaitForEnumBuilder then
-        task.spawn(function() pcall(function() enums:WaitForEnumBuilder() end) end)
-    end
-end)
-
--- =============================================
---   Constants
+--   CONSTANTS
 -- =============================================
 
 local PRIMARY_WEAPONS   = {"Distortion","Permafrost","Energy Rifle","Flamethrower","Grenade Launcher","Minigun","Paintball","Assault Rifle","Bow","Burst Rifle","Crossbow","Gunblade","RPG","Shotgun","Sniper"}
 local SECONDARY_WEAPONS = {"Warper","Energy Pistols","Exogun","Slingshot","Daggers","Flare Gun","Handgun","Revolver","Shorty","Spray","Uzi"}
 local MELEE_WEAPONS     = {"Maul","Spear","Trowel","Battle Axe","Chainsaw","Fist","Katana","Knife","Riot Shield","Scythe"}
 local UTILITY_WEAPONS   = {"Grappler","Medkit","Subspace Tripmine","Warpstone","Flashbang","Freeze Ray","Grenade","Jump Pad","Molotov","Satchel","Smoke Grenade","War Horn"}
-local MAPS              = {"Arena","Big Arena","Backrooms","Big Backrooms","Legacy Backrooms","Baseplate","Battleground","Legacy Battleground","Bridge","Chess","Construction","Crossroads","Big Crossroads","Legacy Crossroads","Dimensions","Docks","Legacy Docks","Graveyard","Big Graveyard"}
+local MAPS              = {"Arena","Big Arena","Backrooms","Big Backrooms","Baseplate","Battleground","Bridge","Chess","Construction","Crossroads","Dimensions","Docks","Graveyard"}
 local QUEUE_MODES       = {"1v1","2v2","3v3","4v4","5v5"}
 local PARTS             = {"Head","HumanoidRootPart","UpperTorso","LowerTorso","Body","Random"}
 local SKYBOX_LIST       = {"Default","Night Sky","Bliss","Sunset","Space"}
 
 local HIT_SOUNDS = {
-    ["Rust"]="rbxassetid://4764109000",["Click"]="rbxassetid://6042053626",["Click 2"]="rbxassetid://5153644999",
-    ["Beep"]="rbxassetid://9120386436",["Ding"]="rbxassetid://4612375109",["Pop"]="rbxassetid://5982421855",
-    ["Punch"]="rbxassetid://386946753",["Headshot"]="rbxassetid://4612378735",["Bone Crack"]="rbxassetid://5801253825",
-    ["Minecraft Hit"]="rbxassetid://131070686",["Neverlose"]="rbxassetid://82938206376993",
-    ["Bruh"]="rbxassetid://9120253754",["Oof"]="rbxassetid://5997174966",
-    ["Vine Boom"]="rbxassetid://7293984919",["Metal Hit"]="rbxassetid://10734947730",
-    ["Wet"]="rbxassetid://4768489490",["Laser"]="rbxassetid://5992660828",
-    ["Cash"]="rbxassetid://4612379547",["Among Us"]="rbxassetid://6936643745",
+    ["Rust"]="rbxassetid://4764109000",
+    ["Click"]="rbxassetid://6042053626",
+    ["Beep"]="rbxassetid://9120386436",
+    ["Ding"]="rbxassetid://4612375109",
+    ["Punch"]="rbxassetid://386946753",
+    ["Headshot"]="rbxassetid://4612378735",
+    ["Vine Boom"]="rbxassetid://7293984919",
+    ["Metal Hit"]="rbxassetid://10734947730",
+    ["Laser"]="rbxassetid://5992660828",
+    ["Cash"]="rbxassetid://4612379547",
+    ["Oof"]="rbxassetid://5997174966",
+    ["Bruh"]="rbxassetid://9120253754",
 }
 local HIT_SOUND_LIST = {}
 for k in pairs(HIT_SOUNDS) do table.insert(HIT_SOUND_LIST, k) end
@@ -264,7 +128,8 @@ local SKYBOXES = {
 }
 
 local PMAP = {
-    ["Head"]={"Head"},["HumanoidRootPart"]={"HumanoidRootPart"},
+    ["Head"]={"Head"},
+    ["HumanoidRootPart"]={"HumanoidRootPart"},
     ["UpperTorso"]={"UpperTorso","Torso","HumanoidRootPart"},
     ["LowerTorso"]={"LowerTorso","Torso","HumanoidRootPart"},
     ["Body"]={"UpperTorso","LowerTorso","Torso","HumanoidRootPart"},
@@ -272,7 +137,88 @@ local PMAP = {
 }
 
 -- =============================================
---   Utility functions
+--   GAME MODULES (loaded lazily, never blocking)
+-- =============================================
+
+local Mods = {
+    CameraController  = nil,
+    FighterController = nil,
+    DataController    = nil,
+    util              = nil,
+    enums             = nil,
+    CosmeticLibrary   = nil,
+    ItemLibrary       = nil,
+    GunModule         = nil,
+}
+
+local modsLoaded = false
+task.spawn(function()
+    task.wait(2) -- wait for game to fully settle
+    local PS = lp:FindFirstChild("PlayerScripts")
+    local RS = ReplicatedStorage
+
+    local function tryReq(parent, name)
+        if not parent then return nil end
+        local child = parent:FindFirstChild(name)
+        if not child then return nil end
+        local ok, result = pcall(require, child)
+        task.wait(0.05) -- yield between each require
+        return ok and result or nil
+    end
+
+    local Controllers = PS and PS:FindFirstChild("Controllers")
+    local Modules     = RS:FindFirstChild("Modules")
+
+    Mods.CameraController  = tryReq(Controllers, "CameraController")
+    Mods.FighterController = tryReq(Controllers, "FighterController")
+    Mods.DataController    = tryReq(Controllers, "PlayerDataController")
+    Mods.util              = tryReq(Modules, "Utility")
+    Mods.enums             = tryReq(Modules, "EnumLibrary")
+    Mods.CosmeticLibrary   = tryReq(Modules, "CosmeticLibrary")
+    Mods.ItemLibrary       = tryReq(Modules, "ItemLibrary")
+
+    -- GunModule
+    task.spawn(function()
+        pcall(function()
+            local m = PS and PS:FindFirstChild("Modules")
+            local it = m and m:FindFirstChild("ItemTypes")
+            local g  = it and it:FindFirstChild("Gun")
+            if g then
+                local ok, r = pcall(require, g)
+                if ok then Mods.GunModule = r end
+            end
+        end)
+    end)
+
+    modsLoaded = true
+end)
+
+-- =============================================
+--   REMOTES (found lazily)
+-- =============================================
+
+local Rem = {}
+task.spawn(function()
+    task.wait(2.5)
+    pcall(function()
+        local RF = ReplicatedStorage:FindFirstChild("Remotes")
+        if not RF then return end
+        local Rep = RF:FindFirstChild("Replication")
+        local Fig = Rep and Rep:FindFirstChild("Fighter")
+        Rem.UseItem     = Fig and Fig:FindFirstChild("UseItem")
+        Rem.PickWeapons = Fig and Fig:FindFirstChild("PickWeapons")
+        local Duels = RF:FindFirstChild("Duels")
+        Rem.Vote    = Duels and Duels:FindFirstChild("Vote")
+        local MM = RF:FindFirstChild("Matchmaking")
+        Rem.Queue   = MM and MM:FindFirstChild("JoinQueue")
+        local DR = RF:FindFirstChild("Data")
+        Rem.Equip    = DR and DR:FindFirstChild("EquipCosmetic")
+        Rem.Favorite = DR and DR:FindFirstChild("FavoriteCosmetic")
+    end)
+end)
+
+-- =============================================
+--   UTILITY
 -- =============================================
 
 local function bPart(char, s)
@@ -280,25 +226,37 @@ local function bPart(char, s)
     if pr[1] == "Random" then
         local av = {}
         for _, n in ipairs({"Head","UpperTorso","LowerTorso","HumanoidRootPart"}) do
-            local p = char:FindFirstChild(n); if p then table.insert(av, p) end
+            local p = char:FindFirstChild(n)
+            if p then table.insert(av, p) end
         end
         return #av > 0 and av[math.random(1,#av)] or nil
     end
-    for _, n in ipairs(pr) do local p = char:FindFirstChild(n); if p then return p end end
+    for _, n in ipairs(pr) do
+        local p = char:FindFirstChild(n)
+        if p then return p end
+    end
 end
 
-local function getScr() return Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2) end
-local function getMousePos() return UserInputService:GetMouseLocation() end
+local function getScr()
+    return Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
+end
+
+local function getMouse()
+    return UserInputService:GetMouseLocation()
+end
 
 local function sameTm(p)
     local ok, r = pcall(function()
-        local a = lp:GetAttribute("TeamID"); local b = p:GetAttribute("TeamID")
+        local a = lp:GetAttribute("TeamID")
+        local b = p:GetAttribute("TeamID")
         return a ~= nil and b ~= nil and a == b
     end)
     return ok and r or false
 end
 
-local vpRp = RaycastParams.new(); vpRp.FilterType = Enum.RaycastFilterType.Exclude
+local vpRp = RaycastParams.new()
+vpRp.FilterType = Enum.RaycastFilterType.Exclude
+
 local function isVis(orig, part)
     if not part then return false end
     local ok, res = pcall(function()
@@ -322,147 +280,98 @@ local function angDiff(f, t)
 end
 
 -- =============================================
---   State
+--   STATE
 -- =============================================
 
 local AB = {
     on=false, part="Head", team=false, vis=false, fov=150,
-    drawFov=false, dynFov=false, lockMode="Soft", curvePct=10,
-    speed=1.0, speedAttack=1.0, speedScaleFov=50, maxLock=3.0,
-    reactTime=100, useCenter=false
+    dynFov=false, lockMode="Soft", curvePct=10,
+    speed=1.0, speedAttack=1.0, speedScaleFov=50,
+    maxLock=3.0, reactTime=100, useCenter=false
 }
-local abTgt,abLockT,abReactT = nil,0,0
-local abDoReact,abPrevPos,abPrevTick = false,nil,0
-local abCurveProgress,abCurveStart,abCurveEnd = 0,nil,nil
 
-local silentCfg = {
-    enabled=false, hitChance=100, prediction=0, visCheck=false,
-    useCenter=false, fovSize=150, maxDist=200, part="Head",
-    circleVisible=false, circleColor=Color3.fromRGB(0,200,255),
+local abTgt, abLockT, abReactT = nil, 0, 0
+local abDoReact, abPrevPos, abPrevTick = false, nil, 0
+local abCurveProgress, abCurveStart, abCurveEnd = 0, nil, nil
+
+local silCfg = {
+    on=false, hitChance=100, prediction=0, visCheck=false,
+    useCenter=false, fov=150, maxDist=200, part="Head",
+    showCircle=false, circleColor=Color3.fromRGB(0,200,255),
     targetColor=Color3.fromRGB(255,50,50), circleThick=1.5
 }
-local silentHooked, origRaycast, origMeta, origIndex = false, nil, nil, nil
 
 local rageCfg = {
-    enabled=false, improvedManip=false,
+    on=false, improved=false,
     v1y=12,v2y=16,v3y=20,v4y=24,v5y=28,v6y=32,v7y=36,v8y=40,
     v1x=0,v2x=0,v3x=0,v4x=0,
     v1z=0,v2z=0,v3z=0,v4z=0,
     vectors={},
-    improv={scanAngle=15,multiPass=false,spiralScan=false,adaptDist=false},
+    scanAngle=15, multiPass=false, spiral=false, adaptDist=false,
 }
-local rageConn, rageRunning = nil, false
-local ray_params = RaycastParams.new()
-ray_params.FilterType = Enum.RaycastFilterType.Exclude
 
-local WB = {enabled=false, hitPart="Head"}
-local wbState = {}
-
-local hitSoundCfg = {enabled=false, soundId="rbxassetid://4764109000", volume=1, pitch=1}
-local hitSoundConn = nil
+local wbCfg    = {on=false, part="Head"}
+local hsCfg    = {on=false, soundId="rbxassetid://4764109000", vol=1, pitch=1}
+local fovCfg   = {show=false, half=false, color=Color3.fromRGB(255,255,255), size=150, onTarget=60, onBarrier=200, useCenter=false}
+local camCfg   = {fovOn=false, fovVal=80, noShake=false, noSway=false, noBob=false, noJump=false, noTilt=false, forceCross=false, sensOn=false, sens=1, sensADS=1, sensScope=1, sensX=1, sensY=1, vmOn=false, vmX=0, vmY=0, vmZ=0}
+local skyCfg   = {on=false, selected="Default"}
+local skinCfg  = {on=false, weapon=nil, skin="None", wrap="None", charm="None", finish="None", autoLoad=true}
+local miscCfg  = {autoLoad=false, voteMap=MAPS[1], queueMode=QUEUE_MODES[1], autoVote=false}
+local loadoutCfg = {prim=PRIMARY_WEAPONS[1], sec=SECONDARY_WEAPONS[1], melee=MELEE_WEAPONS[1], util=UTILITY_WEAPONS[1]}
 
 local espCfg = {
-    enabled=false, box=false, corners=false, fill=false, skeleton=false,
-    name=false, weapon=false, distance=false, healthBar=false,
-    healthBarStyle="Left", healthBarGradient=false, teamCheck=false,
-    visibleOnly=false, colorByVisibility=false, maxDist=1000,
-    boxColor=Color3.fromRGB(255,60,60), boxEnemy=Color3.fromRGB(255,60,60),
-    boxVisible=Color3.fromRGB(60,220,60), fillColor=Color3.fromRGB(255,255,255),
-    fillTrans=0.75, skelColor=Color3.fromRGB(255,220,0),
-    nameColor=Color3.fromRGB(255,255,255), weaponColor=Color3.fromRGB(160,160,255),
-    distColor=Color3.fromRGB(180,180,180), nameSize=13, weaponSize=11,
-    distSize=11, hpBarWidth=3, hpBarOffset=1, cornerLength=0.25
+    on=false, box=false, corners=false, fill=false, skel=false,
+    name=false, weapon=false, dist=false, hp=false,
+    hpStyle="Left", hpGrad=false, teamCheck=false, visOnly=false,
+    colorVis=false, maxDist=1000,
+    boxCol=Color3.fromRGB(255,60,60), enemyCol=Color3.fromRGB(255,60,60),
+    visCol=Color3.fromRGB(60,220,60), fillCol=Color3.fromRGB(255,255,255),
+    fillAlpha=0.75, skelCol=Color3.fromRGB(255,220,0),
+    nameCol=Color3.fromRGB(255,255,255), weapCol=Color3.fromRGB(160,160,255),
+    distCol=Color3.fromRGB(180,180,180), nameSize=13, weapSize=11,
+    distSize=11, hpW=3, hpOff=1, cornerLen=0.25
 }
 
-local fovCfg = {
-    visible=false, half=false, color=Color3.fromRGB(255,255,255),
-    fovSize=150, onTarget=60, onBarrier=200, useCenter=false
-}
-
-local camCfg = {
-    fovEnabled=false, fovValue=80, noShake=false, noSway=false,
-    noBobbing=false, noJumpEffect=false, noSlideTilt=false, forceCrosshair=false,
-    sensOverride=false, sensValue=1.0, sensADS=1.0, sensScoped=1.0, sensX=1.0, sensY=1.0,
-    viewmodelEnabled=false, vmX=0, vmY=0, vmZ=0
-}
-
-local skyboxCfg = {enabled=false, selected="Default"}
-local origSky = nil
-
-local skinCfg = {
-    enabled=false, selectedWeapon=nil, selectedSkin="None",
-    selectedWrap="None", selectedCharm="None", selectedFinisher="None",
-    autoLoad=true
-}
-local equipped, favorites = {}, {}
-local constructingWeapon, lastUsedWeapon
-local skinHooksInstalled = false
-local skinConfigPath = "RivalsScript/skins_config.json"
-
-local loadoutCfg = {
-    primary=PRIMARY_WEAPONS[1], secondary=SECONDARY_WEAPONS[1],
-    melee=MELEE_WEAPONS[1], utility=UTILITY_WEAPONS[1]
-}
-local miscCfg = {
-    autoApplyLoadout=false, autoVote=false,
-    voteMap=MAPS[1], queueMode=QUEUE_MODES[1]
-}
 local autoVoteActive = false
-
--- Remotes (found after modules load)
-local RemotesFolder, ReplicationFolder, FighterFolder
-local UseItemRemote, PickWeaponsRemote, DuelsFolder, VoteRemote
-local MMFolder, QueueRemote, DataRemotes, EquipCosmeticRemote, FavoriteCosmeticRemote
-
-task.spawn(function()
-    task.wait(2)
-    local function sF(p, n) if not p then return nil end; local ok,r = pcall(function() return p:FindFirstChild(n) end); return ok and r or nil end
-    RemotesFolder     = sF(ReplicatedStorage, "Remotes")
-    ReplicationFolder = sF(RemotesFolder, "Replication")
-    FighterFolder     = sF(ReplicationFolder, "Fighter")
-    UseItemRemote     = sF(FighterFolder, "UseItem")
-    PickWeaponsRemote = sF(FighterFolder, "PickWeapons")
-    DuelsFolder       = sF(RemotesFolder, "Duels")
-    VoteRemote        = sF(DuelsFolder, "Vote")
-    MMFolder          = sF(RemotesFolder, "Matchmaking")
-    QueueRemote       = sF(MMFolder, "JoinQueue")
-    DataRemotes       = sF(RemotesFolder, "Data")
-    EquipCosmeticRemote    = sF(DataRemotes, "EquipCosmetic")
-    FavoriteCosmeticRemote = sF(DataRemotes, "FavoriteCosmetic")
-end)
+local origSky = nil
+local equipped = {}
+local favorites = {}
+local skinHooked = false
+local skinPath = "RivalsScript/skins.json"
 
 -- =============================================
---   Drawing objects
+--   DRAWINGS
 -- =============================================
 
 local abCirc = Drawing.new("Circle")
-abCirc.NumSides=64; abCirc.Filled=false; abCirc.Color=Color3.fromRGB(255,255,255)
-abCirc.Thickness=1.5; abCirc.Transparency=0.7; abCirc.Visible=false
+abCirc.NumSides=64; abCirc.Filled=false
+abCirc.Color=Color3.fromRGB(255,255,255)
+abCirc.Thickness=1.5; abCirc.Visible=false
 
-local fovCircle = Drawing.new("Circle")
-fovCircle.Visible=false; fovCircle.Thickness=1.5
-fovCircle.Color=Color3.fromRGB(255,255,255); fovCircle.Filled=false
-fovCircle.NumSides=64; fovCircle.Radius=150
+local fovCirc = Drawing.new("Circle")
+fovCirc.NumSides=64; fovCirc.Filled=false
+fovCirc.Color=Color3.fromRGB(255,255,255)
+fovCirc.Thickness=1.5; fovCirc.Visible=false; fovCirc.Radius=150
 
 local fovHalf = Drawing.new("Circle")
-fovHalf.Visible=false; fovHalf.Thickness=1
-fovHalf.Color=Color3.fromRGB(255,255,255); fovHalf.Filled=false
-fovHalf.NumSides=32; fovHalf.Radius=75
+fovHalf.NumSides=32; fovHalf.Filled=false
+fovHalf.Color=Color3.fromRGB(255,255,255)
+fovHalf.Thickness=1; fovHalf.Visible=false; fovHalf.Radius=75
 
-local silentCircle = Drawing.new("Circle")
-silentCircle.Thickness=1.5; silentCircle.Filled=false
-silentCircle.NumSides=64; silentCircle.Visible=false
-silentCircle.Radius=150; silentCircle.Color=Color3.fromRGB(0,200,255)
+local silCirc = Drawing.new("Circle")
+silCirc.NumSides=64; silCirc.Filled=false
+silCirc.Color=Color3.fromRGB(0,200,255)
+silCirc.Thickness=1.5; silCirc.Visible=false; silCirc.Radius=150
 
 -- =============================================
---   Aimbot logic
+--   AIMBOT
 -- =============================================
 
 local function abEffFov()
     return AB.dynFov and AB.fov*(cam.FieldOfView/70) or AB.fov
 end
 
-local function abTgtValid(pt)
+local function abValid(pt)
     if not pt or not pt.Parent then return false end
     local h = pt.Parent:FindFirstChildOfClass("Humanoid")
     if not h or h.Health<=0 then return false end
@@ -476,9 +385,8 @@ local function abTgtValid(pt)
 end
 
 local function abFind()
-    local center = AB.useCenter and getScr() or getMousePos()
-    local fv = abEffFov()
-    local best, bd = nil, fv
+    local center = AB.useCenter and getScr() or getMouse()
+    local best, bd = nil, abEffFov()
     for _, p in ipairs(Players:GetPlayers()) do
         if p == lp then continue end
         if AB.team and sameTm(p) then continue end
@@ -491,61 +399,58 @@ local function abFind()
         local d = (Vector2.new(sp.X,sp.Y)-center).Magnitude
         if d < bd then
             if AB.vis and not isVis(cam.CFrame.Position, pt) then continue end
-            bd = d; best = pt
+            bd=d; best=pt
         end
     end
     return best
 end
 
-local function getPredictedPos(pt)
-    local now, curPos = tick(), pt.Position
-    local result = curPos
-    if abPrevPos and (now - abPrevTick) > 0.001 then
-        local vel = (curPos - abPrevPos) / (now - abPrevTick)
-        if vel.Magnitude < 200 then
-            result = curPos + vel * (0.08 * AB.speedAttack)
-        end
+local function getPred(pt)
+    local now, cur = tick(), pt.Position
+    local res = cur
+    if abPrevPos and (now-abPrevTick)>0.001 then
+        local vel = (cur-abPrevPos)/(now-abPrevTick)
+        if vel.Magnitude<200 then res=cur+vel*(0.08*AB.speedAttack) end
     end
-    abPrevPos, abPrevTick = curPos, now
-    return result
+    abPrevPos=cur; abPrevTick=now
+    return res
 end
 
-local function applySmartLock(tRot, cur, dt, sd, fovR)
+local function smartLock(tR, cur, dt, sd, fR)
     local df = AB.speed
-    if fovR > 0 then
-        local n = math.clamp(sd / fovR, 0, 1)
-        df = AB.speed + (AB.speedScaleFov/100)*(1-n)*math.max(AB.speedAttack-AB.speed,0)
+    if fR>0 then
+        local n = math.clamp(sd/fR,0,1)
+        df = AB.speed+(AB.speedScaleFov/100)*(1-n)*math.max(AB.speedAttack-AB.speed,0)
     end
-    local eff = math.clamp(df, 0.01, 5)
-    local fac = math.clamp(eff * dt * 6, 0, 1)
-    if AB.lockMode == "Soft" or AB.lockMode == "Magnet" then
-        return Vector2.new(
-            cur.X + (tRot.X - cur.X)*fac,
-            cur.Y + angDiff(cur.Y, tRot.Y)*fac
-        )
-    else
-        local needNew = (abCurveStart==nil) or (abCurveEnd==nil)
-        if not needNew then
-            local dx = tRot.X - abCurveEnd.X
-            local dy = angDiff(abCurveEnd.Y, tRot.Y)
-            if math.sqrt(dx*dx+dy*dy) > 1.2 then needNew=true end
-        end
-        if needNew then abCurveStart=cur; abCurveProgress=0 end
-        abCurveEnd = tRot
-        abCurveProgress = math.clamp(abCurveProgress+(AB.curvePct/100)*3*eff*dt, 0, 1)
-        local cv = abCurveProgress^2*(3-2*abCurveProgress)
-        local nP = abCurveStart.X+(abCurveEnd.X-abCurveStart.X)*cv
-        local nY = abCurveStart.Y+angDiff(abCurveStart.Y,abCurveEnd.Y)*cv
-        if abCurveProgress>=1 then abCurveStart=Vector2.new(nP,nY); abCurveProgress=0 end
-        return Vector2.new(nP, nY)
+    local eff = math.clamp(df,0.01,5)
+    local fac = math.clamp(eff*dt*6,0,1)
+    if AB.lockMode~="Curve" then
+        return Vector2.new(cur.X+(tR.X-cur.X)*fac, cur.Y+angDiff(cur.Y,tR.Y)*fac)
     end
+    local needNew = not abCurveStart or not abCurveEnd
+    if not needNew then
+        local dx=tR.X-abCurveEnd.X; local dy=angDiff(abCurveEnd.Y,tR.Y)
+        if math.sqrt(dx*dx+dy*dy)>1.2 then needNew=true end
+    end
+    if needNew then abCurveStart=cur; abCurveProgress=0 end
+    abCurveEnd=tR
+    abCurveProgress=math.clamp(abCurveProgress+(AB.curvePct/100)*3*eff*dt,0,1)
+    local cv=abCurveProgress^2*(3-2*abCurveProgress)
+    local nP=abCurveStart.X+(abCurveEnd.X-abCurveStart.X)*cv
+    local nY=abCurveStart.Y+angDiff(abCurveStart.Y,abCurveEnd.Y)*cv
+    if abCurveProgress>=1 then abCurveStart=Vector2.new(nP,nY); abCurveProgress=0 end
+    return Vector2.new(nP,nY)
 end
 
 -- =============================================
---   Ragebot logic
+--   RAGEBOT
 -- =============================================
 
-local function rebuildVectors()
+local rageConn, rageRunning = nil, false
+local rRp = RaycastParams.new()
+rRp.FilterType = Enum.RaycastFilterType.Exclude
+
+local function rebuildVec()
     rageCfg.vectors = {
         Vector3.new(rageCfg.v1x,rageCfg.v1y,rageCfg.v1z),
         Vector3.new(rageCfg.v2x,rageCfg.v2y,rageCfg.v2z),
@@ -555,633 +460,498 @@ local function rebuildVectors()
         Vector3.new(0,rageCfg.v7y,0), Vector3.new(0,rageCfg.v8y,0),
     }
 end
-rebuildVectors()
+rebuildVec()
 
-local function rageGetClosest()
-    if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return nil,nil end
-    local target,char,dist = nil,nil,math.huge
-    for _, v in pairs(Players:GetPlayers()) do
-        if v~=lp and v.Character and v.Character:FindFirstChild("Head") then
-            local mag = (lp.Character.HumanoidRootPart.Position-v.Character.Head.Position).Magnitude
-            if mag<dist then dist=mag; target=v.Character.Head; char=v.Character end
-        end
-    end
-    return target, char
-end
-
-local function rageCalcPoint(origin,targetPos,targetChar)
-    ray_params.FilterDescendantsInstances={lp.Character,targetChar}
-    if not ws:Raycast(origin,targetPos-origin,ray_params) then return origin,nil end
-    for _,offset in next,rageCfg.vectors do
-        local sp = origin+offset
-        if not ws:Raycast(sp,targetPos-sp,ray_params) then return sp,offset.Y end
-    end
-    return nil,nil
-end
-
-local function improvedCalcPoint(origin,targetPos,targetChar)
-    ray_params.FilterDescendantsInstances={lp.Character,targetChar}
-    local function tryP(sp)
-        local r = ws:Raycast(sp,targetPos-sp,ray_params)
-        return r==nil or r.Instance:IsDescendantOf(targetChar)
-    end
-    if tryP(origin) then return origin,nil end
-    for _,offset in next,rageCfg.vectors do
-        local sp = origin+offset
-        if tryP(sp) then return sp,offset.Y end
-    end
-    if rageCfg.improv.multiPass then
-        for _,offset in next,rageCfg.vectors do
-            for angle=-45,45,rageCfg.improv.scanAngle do
-                local rad = math.rad(angle)
-                local sp = origin+Vector3.new(
-                    offset.X*math.cos(rad)-offset.Z*math.sin(rad),
-                    offset.Y,
-                    offset.X*math.sin(rad)+offset.Z*math.cos(rad)
-                )
-                if tryP(sp) then return sp,offset.Y end
+local function rageClosest()
+    if not lp.Character then return nil,nil end
+    local root = lp.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil,nil end
+    local tgt,char,best = nil,nil,math.huge
+    for _,v in pairs(Players:GetPlayers()) do
+        if v~=lp and v.Character then
+            local h = v.Character:FindFirstChild("Head")
+            if h then
+                local d=(root.Position-h.Position).Magnitude
+                if d<best then best=d; tgt=h; char=v.Character end
             end
         end
     end
-    if rageCfg.improv.spiralScan then
-        for layer=1,4 do
-            local h=layer*8
+    return tgt,char
+end
+
+local function tryPoint(origin, targetPos, targetChar, sp)
+    rRp.FilterDescendantsInstances={lp.Character,targetChar}
+    local r=ws:Raycast(sp,targetPos-sp,rRp)
+    return r==nil or r.Instance:IsDescendantOf(targetChar)
+end
+
+local function rageCalc(origin, targetPos, targetChar)
+    rRp.FilterDescendantsInstances={lp.Character,targetChar}
+    if tryPoint(origin,targetPos,targetChar,origin) then return origin,nil end
+    for _,off in next,rageCfg.vectors do
+        local sp=origin+off
+        if tryPoint(origin,targetPos,targetChar,sp) then return sp,off.Y end
+    end
+    if rageCfg.improved and rageCfg.multiPass then
+        for _,off in next,rageCfg.vectors do
+            for a=-45,45,rageCfg.scanAngle do
+                local r2=math.rad(a)
+                local sp=origin+Vector3.new(off.X*math.cos(r2)-off.Z*math.sin(r2),off.Y,off.X*math.sin(r2)+off.Z*math.cos(r2))
+                if tryPoint(origin,targetPos,targetChar,sp) then return sp,off.Y end
+            end
+        end
+    end
+    if rageCfg.improved and rageCfg.spiral then
+        for layer=1,4 do local h=layer*8
             for s=0,11 do
                 local a=(s/12)*math.pi*2
-                local sp = origin+Vector3.new(math.cos(a)*2*layer,h,math.sin(a)*2*layer)
-                if tryP(sp) then return sp,h end
+                local sp=origin+Vector3.new(math.cos(a)*2*layer,h,math.sin(a)*2*layer)
+                if tryPoint(origin,targetPos,targetChar,sp) then return sp,h end
             end
-        end
-    end
-    local sides = {
-        Vector3.new(2,0,0),Vector3.new(-2,0,0),Vector3.new(0,0,2),Vector3.new(0,0,-2),
-        Vector3.new(3,8,0),Vector3.new(-3,8,0),Vector3.new(0,8,3),Vector3.new(0,8,-3)
-    }
-    for _,side in next,sides do
-        local sp = origin+side
-        if tryP(sp) then return sp,side.Y end
-    end
-    if rageCfg.improv.adaptDist then
-        local scale = math.clamp((origin-targetPos).Magnitude/50,0.5,3)
-        for _,offset in next,rageCfg.vectors do
-            local sc = Vector3.new(offset.X*scale,offset.Y*scale,offset.Z*scale)
-            local sp = origin+sc
-            if tryP(sp) then return sp,sc.Y end
         end
     end
     return nil,nil
 end
 
-local function startRagebot()
-    if rageConn then rageConn:Disconnect(); rageConn=nil end
+local function startRage()
+    if rageConn then rageConn:Disconnect() end
     rageRunning=false
-    rageConn = RunService.Heartbeat:Connect(function()
-        if not rageCfg.enabled or not lp.Character or rageRunning then return end
-        local root = lp.Character:FindFirstChild("HumanoidRootPart"); if not root then return end
-        if not FighterController or not FighterController.LocalFighter then return end
-        local item = FighterController.LocalFighter.EquippedItem; if not item then return end
-        local tp,tc = rageGetClosest(); if not tp or not tc then return end
-        local camCF2 = cam.CFrame
-        local manip,height
-        if rageCfg.improvedManip then
-            manip,height=improvedCalcPoint(camCF2.Position,tp.Position,tc)
-        else
-            manip,height=rageCalcPoint(camCF2.Position,tp.Position,tc)
-        end
+    rageConn=RunService.Heartbeat:Connect(function()
+        if not rageCfg.on or rageRunning then return end
+        if not lp.Character then return end
+        local FC = Mods.FighterController
+        if not FC or not FC.LocalFighter then return end
+        local item = FC.LocalFighter.EquippedItem; if not item then return end
+        local tp,tc=rageClosest(); if not tp or not tc then return end
+        local cf=cam.CFrame
+        local manip,height=rageCalc(cf.Position,tp.Position,tc)
         if not manip then return end
         rageRunning=true
         task.spawn(function()
             pcall(function()
-                local so = height~=nil and Vector3.new(camCF2.Position.X,camCF2.Position.Y+height,camCF2.Position.Z) or camCF2.Position
-                local cf1 = CFrame.lookAt(so,tp.Position)
-                local cf2 = CFrame.lookAt(tp.Position,so)
-                local rel = tp.CFrame:ToObjectSpace(CFrame.new(tp.Position))
-                local cd = {}
-                if util and enums and UseItemRemote then
-                    cd[utf8.char(1)] = {
-                        [utf8.char(0)]=util:EncodeCFrame(cf1),
-                        [utf8.char(1)]=util:EncodeCFrame(cf2),
-                        [utf8.char(2)]=tp,
-                        [utf8.char(3)]=util:EncodeCFrame(rel)
-                    }
-                    UseItemRemote:FireServer(item:Get("ObjectID"),enums:ToEnum("StartShooting"),cd,nil)
-                end
+                local u=Mods.util; local e=Mods.enums; local R=Rem.UseItem
+                if not u or not e or not R then rageRunning=false; return end
+                local so=height and Vector3.new(cf.Position.X,cf.Position.Y+height,cf.Position.Z) or cf.Position
+                local cd={}
+                cd[utf8.char(1)]={
+                    [utf8.char(0)]=u:EncodeCFrame(CFrame.lookAt(so,tp.Position)),
+                    [utf8.char(1)]=u:EncodeCFrame(CFrame.lookAt(tp.Position,so)),
+                    [utf8.char(2)]=tp,
+                    [utf8.char(3)]=u:EncodeCFrame(tp.CFrame:ToObjectSpace(CFrame.new(tp.Position)))
+                }
+                R:FireServer(item:Get("ObjectID"),e:ToEnum("StartShooting"),cd,nil)
             end)
             rageRunning=false
         end)
     end)
 end
 
-local function stopRagebot()
+local function stopRage()
     if rageConn then rageConn:Disconnect(); rageConn=nil end
-    rageCfg.enabled=false; rageRunning=false
+    rageCfg.on=false; rageRunning=false
 end
 
 -- =============================================
---   Silent Aim logic
+--   SILENT AIM
 -- =============================================
 
-local function getSilentTarget(origin)
-    local center = silentCfg.useCenter and getScr() or getMousePos()
-    local best, bestDist = nil, math.huge
-    for _, p in pairs(Players:GetPlayers()) do
+local silHooked, origRC, origMeta, origIdx = false, nil, nil, nil
+
+local function silGetTarget(origin)
+    local center = silCfg.useCenter and getScr() or getMouse()
+    local best, bd = nil, math.huge
+    for _,p in pairs(Players:GetPlayers()) do
         if p==lp then continue end
-        local char = p.Character; if not char then continue end
-        local head = bPart(char, silentCfg.part)
-        local hum = char:FindFirstChildOfClass("Humanoid")
+        local char=p.Character; if not char then continue end
+        local head=bPart(char,silCfg.part)
+        local hum=char:FindFirstChildOfClass("Humanoid")
         if not head or not hum or hum.Health<=0 then continue end
-        if (origin-head.Position).Magnitude > silentCfg.maxDist then continue end
-        if silentCfg.visCheck and not isVis(origin, head) then continue end
-        local sp, vis = cam:WorldToViewportPoint(head.Position)
+        if (origin-head.Position).Magnitude>silCfg.maxDist then continue end
+        if silCfg.visCheck and not isVis(origin,head) then continue end
+        local sp,vis=cam:WorldToViewportPoint(head.Position)
         if not vis then continue end
-        local d = (Vector2.new(sp.X,sp.Y)-center).Magnitude
-        if d < silentCfg.fovSize and d < bestDist then bestDist=d; best=head end
+        local d=(Vector2.new(sp.X,sp.Y)-center).Magnitude
+        if d<silCfg.fov and d<bd then bd=d; best=head end
     end
     return best
 end
 
-local function buildSilentWrapper(originalFunc)
-    return function(self, origin, direction, distance, ...)
-        if silentCfg.enabled and math.random(1,100)<=silentCfg.hitChance then
-            local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-            local orig = myRoot and myRoot.Position or cam.CFrame.Position
-            local target = getSilentTarget(orig)
-            if target then
-                local pp = target.Position
-                if silentCfg.prediction > 0 then
+local function silWrap(orig)
+    return function(self,origin,dir,dist,...)
+        if silCfg.on and math.random(1,100)<=silCfg.hitChance then
+            local myR=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            local o=myR and myR.Position or cam.CFrame.Position
+            local tgt=silGetTarget(o)
+            if tgt then
+                local pp=tgt.Position
+                if silCfg.prediction>0 then
                     pcall(function()
-                        local hrp = target.Parent and target.Parent:FindFirstChild("HumanoidRootPart")
-                        local vel = hrp and hrp.AssemblyLinearVelocity or Vector3.zero
-                        pp = target.Position + vel*(silentCfg.prediction*0.05)
+                        local hrp=tgt.Parent and tgt.Parent:FindFirstChild("HumanoidRootPart")
+                        local vel=hrp and hrp.AssemblyLinearVelocity or Vector3.zero
+                        pp=tgt.Position+vel*(silCfg.prediction*0.05)
                     end)
                 end
-                return originalFunc(self, origin, pp-origin, distance, ...)
+                return orig(self,origin,pp-origin,dist,...)
             end
         end
-        return originalFunc(self, origin, direction, distance, ...)
+        return orig(self,origin,dir,dist,...)
     end
 end
 
-local function hookSilent()
-    if silentHooked or not util then return end
-    local ok, mt = pcall(getrawmetatable, util)
+local function hookSil()
+    if silHooked or not Mods.util then return end
+    local ok,mt=pcall(getrawmetatable,Mods.util)
     if ok and mt then
-        origMeta = mt; origIndex = rawget(mt, "__index")
-        rawset(mt, "__index", function(t, k)
-            if k == "Raycast" then
+        origMeta=mt; origIdx=rawget(mt,"__index")
+        rawset(mt,"__index",function(t,k)
+            if k=="Raycast" then
                 local rf
-                if type(origIndex)=="function" then rf=origIndex(t,k)
-                elseif type(origIndex)=="table" then rf=origIndex[k]
+                if type(origIdx)=="function" then rf=origIdx(t,k)
+                elseif type(origIdx)=="table" then rf=origIdx[k]
                 else rf=rawget(t,k) end
-                if rf then return buildSilentWrapper(rf) end
+                if rf then return silWrap(rf) end
             end
-            if type(origIndex)=="function" then return origIndex(t,k)
-            elseif type(origIndex)=="table" then return origIndex[k] end
+            if type(origIdx)=="function" then return origIdx(t,k)
+            elseif type(origIdx)=="table" then return origIdx[k] end
             return rawget(t,k)
         end)
-        silentHooked=true; return
+        silHooked=true; return
     end
-    origRaycast = rawget(util,"Raycast") or util.Raycast
-    if origRaycast then
-        rawset(util,"Raycast",buildSilentWrapper(origRaycast))
-        silentHooked=true
-    end
+    origRC=rawget(Mods.util,"Raycast") or Mods.util.Raycast
+    if origRC then rawset(Mods.util,"Raycast",silWrap(origRC)); silHooked=true end
 end
 
-local function unhookSilent()
-    if not silentHooked then return end
-    if origMeta and origIndex then
-        pcall(function() rawset(origMeta,"__index",origIndex) end)
-        origMeta=nil; origIndex=nil
-    elseif origRaycast and util then
-        pcall(function() rawset(util,"Raycast",origRaycast) end)
-        origRaycast=nil
+local function unhookSil()
+    if not silHooked then return end
+    if origMeta and origIdx then
+        pcall(function() rawset(origMeta,"__index",origIdx) end)
+        origMeta=nil; origIdx=nil
+    elseif origRC and Mods.util then
+        pcall(function() rawset(Mods.util,"Raycast",origRC) end)
+        origRC=nil
     end
-    silentHooked=false
+    silHooked=false
 end
 
 -- =============================================
---   Wallbang logic
+--   HIT SOUND
 -- =============================================
 
-do
-    function wbState:init()
-        self.active=false; self.target=nil; self.desync=false
-        self.conn1=nil; self.conn2=nil; self.task1=nil; self.oldfunc=nil
-    end
-    function wbState:find()
-        local best,bestDist = nil,math.huge
-        for _, p in next, Players:GetPlayers() do
-            if p==lp then continue end
-            if p:GetAttribute("TeamID")==lp:GetAttribute("TeamID") then continue end
-            local c = p.Character; if not c then continue end
-            local head = c:FindFirstChild("Head")
-            local hum = c:FindFirstChildWhichIsA("Humanoid")
-            if not (head and hum and hum.Health>0) then continue end
-            local dist = (cam.CFrame.Position-head.Position).Magnitude
-            if dist<bestDist then bestDist=dist; best=p end
-        end
-        return best
-    end
-    function wbState:getHitPart(char)
-        if WB.hitPart=="Head" then return char:FindFirstChild("Head")
-        else return char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart") end
-    end
-    function wbState:desyncStart(targetPlayer)
-        if self.conn2 then self.conn2:Disconnect() end
-        self.desync=true
-        self.conn2 = RunService.Heartbeat:Connect(function()
-            if not self.desync then return end
-            local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart"); if not root then return end
-            local tc = targetPlayer.Character; if not tc then self:desyncStop(); return end
-            local head = tc:FindFirstChild("Head"); if not head then self:desyncStop(); return end
-            local sCF,sLV,sAV = root.CFrame,root.AssemblyLinearVelocity,root.AssemblyAngularVelocity
-            root.CFrame = head.CFrame*CFrame.new(0,-5,0)
-            RunService:BindToRenderStep("__wbRestore",101,function()
-                pcall(function() root.CFrame=sCF; root.AssemblyLinearVelocity=sLV; root.AssemblyAngularVelocity=sAV end)
-                RunService:UnbindFromRenderStep("__wbRestore")
-            end)
-        end)
-    end
-    function wbState:desyncStop()
-        self.desync=false
-        if self.conn2 then self.conn2:Disconnect(); self.conn2=nil end
-    end
-    function wbState:setup()
-        if self.conn1 then self.conn1:Disconnect() end
-        self.conn1 = RunService.Heartbeat:Connect(function()
-            if not self.active then return end
-            self.target=self:find()
-        end)
-        local __gunMod = GunModule
-        local __utilMod = util
-        if not __gunMod then return end
-        local origSSFunc = __gunMod.StartShooting
-        self.oldfunc=origSSFunc
-        __gunMod.StartShooting = function(gunSelf,...)
-            local results = {origSSFunc(gunSelf,...)}
-            if not gunSelf.ClientFighter or not gunSelf.ClientFighter.IsLocalPlayer then return table.unpack(results) end
-            local sd = results[3]; if not sd or typeof(sd)~="table" then return table.unpack(results) end
-            results[4]=true
-            local tgp = self.target
-            if not self.active or not tgp or not tgp.Character then return table.unpack(results) end
-            self:desyncStart(tgp); task.wait(0.1)
-            if self.task1 then task.cancel(self.task1); self.task1=nil end
-            local ap = self:getHitPart(tgp.Character); if not ap then return table.unpack(results) end
-            local tp,tcf = ap.Position, ap.CFrame
-            local op = tp-Vector3.new(0,3,0)
-            if __utilMod then
-                pcall(function()
-                    sd[utf8.char(0)] = __utilMod:EncodeCFrame(CFrame.new(op,tp))
-                    sd[utf8.char(1)] = __utilMod:EncodeCFrame(CFrame.new(tp))
-                    sd[utf8.char(2)] = ap
-                    local ro = tcf:ToObjectSpace(CFrame.new(tp+Vector3.new(
-                        math.random(-1,1)*0.5,math.random(-1,1)*0.5,math.random(-1,1)*0.5
-                    )))
-                    sd[utf8.char(3)] = __utilMod:EncodeCFrame(ro)
-                    if sd.Hitbox then sd.Hitbox = WB.hitPart=="Head" and "Head" or "Body" end
-                end)
-            end
-            self.task1 = task.delay(0.15, function() self:desyncStop() end)
-            return table.unpack(results)
-        end
-    end
-    function wbState:Start() self.active=true; self:setup() end
-    function wbState:Shutdown()
-        self.active=false
-        if self.conn1 then self.conn1:Disconnect(); self.conn1=nil end
-        if self.conn2 then self.conn2:Disconnect(); self.conn2=nil end
-        if self.task1 then task.cancel(self.task1); self.task1=nil end
-        local __gunMod = GunModule
-        if self.oldfunc and __gunMod then __gunMod.StartShooting=self.oldfunc; self.oldfunc=nil end
-    end
-end
-wbState:init()
+local hsConn=nil
 
--- =============================================
---   Hit Sound logic
--- =============================================
-
-local function findViewModel()
-    local result=nil
-    pcall(function()
-        for _,v in pairs(lp.PlayerScripts:GetDescendants()) do
-            if v.Name=="ClientViewModel" then result=v; break end
-        end
-    end)
-    return result
-end
-
-local function applyHitSound(sid,vol,pitch)
-    if hitSoundConn then hitSoundConn:Disconnect(); hitSoundConn=nil end
+local function applyHS(sid,vol,pitch)
+    if hsConn then hsConn:Disconnect(); hsConn=nil end
     task.spawn(function()
-        local vm = findViewModel(); if not vm then return end
+        local vm=nil
+        pcall(function()
+            for _,v in pairs(lp.PlayerScripts:GetDescendants()) do
+                if v.Name=="ClientViewModel" then vm=v; break end
+            end
+        end)
+        if not vm then return end
         for _,v in pairs(vm:GetChildren()) do
             if v:IsA("Sound") and v.SoundId~="rbxassetid://16537449730" then
                 pcall(function() v.SoundId=sid; v.Pitch=pitch; v.Volume=vol end)
             end
         end
-        hitSoundConn = vm.ChildAdded:Connect(function(v)
-            if not hitSoundCfg.enabled or not v:IsA("Sound") then return end
+        hsConn=vm.ChildAdded:Connect(function(v)
+            if not hsCfg.on or not v:IsA("Sound") then return end
             if v.SoundId=="rbxassetid://16537449730" then return end
             task.defer(function() pcall(function() v.SoundId=sid; v.Pitch=pitch; v.Volume=vol end) end)
         end)
     end)
 end
 
-local function stopHitSound()
-    if hitSoundConn then hitSoundConn:Disconnect(); hitSoundConn=nil end
-    hitSoundCfg.enabled=false
+local function stopHS()
+    if hsConn then hsConn:Disconnect(); hsConn=nil end
+    hsCfg.on=false
 end
 
 -- =============================================
---   ESP logic
+--   WALLBANG
 -- =============================================
 
-local espPool,espValidSet = {},{}
-local SKEL_R15 = {
-    {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
-    {"LowerTorso","LeftUpperLeg"},{"LowerTorso","RightUpperLeg"},
-    {"LeftUpperLeg","LeftLowerLeg"},{"RightUpperLeg","RightLowerLeg"},
-    {"LeftLowerLeg","LeftFoot"},{"RightLowerLeg","RightFoot"},
-    {"UpperTorso","LeftUpperArm"},{"UpperTorso","RightUpperArm"},
-    {"LeftUpperArm","LeftLowerArm"},{"RightUpperArm","RightLowerArm"},
-    {"LeftLowerArm","LeftHand"},{"RightLowerArm","RightHand"}
-}
-local SKEL_R6 = {
-    {"Head","Torso"},{"Torso","Left Arm"},{"Torso","Right Arm"},
-    {"Torso","Left Leg"},{"Torso","Right Leg"}
-}
-local MAX_BONES = math.max(#SKEL_R15,#SKEL_R6)
+local wbConn1,wbConn2,wbTask,wbTarget,wbOldFunc=nil,nil,nil,nil,nil
+local wbActive=false
 
-local function newLine(props)
-    local d=Drawing.new("Line"); d.Visible=false; d.Thickness=1.5
-    d.Color=Color3.new(1,1,1); d.ZIndex=5
-    if props then for k,v in pairs(props) do d[k]=v end end
-    return d
-end
-local function newText(props)
-    local d=Drawing.new("Text"); d.Visible=false; d.Size=13
-    d.Center=true; d.Outline=true; d.Font=Drawing.Fonts.UI
-    d.Color=Color3.new(1,1,1); d.ZIndex=7
-    if props then for k,v in pairs(props) do d[k]=v end end
-    return d
-end
-local function newSquare(props)
-    local d=Drawing.new("Square"); d.Visible=false; d.Filled=true
-    d.Color=Color3.new(1,1,1); d.Transparency=0.75; d.ZIndex=3
-    if props then for k,v in pairs(props) do d[k]=v end end
-    return d
+local function wbFind()
+    local best,bd=nil,math.huge
+    for _,p in next,Players:GetPlayers() do
+        if p==lp then continue end
+        local c=p.Character; if not c then continue end
+        local head=c:FindFirstChild("Head")
+        local hum=c:FindFirstChildWhichIsA("Humanoid")
+        if not(head and hum and hum.Health>0) then continue end
+        local d=(cam.CFrame.Position-head.Position).Magnitude
+        if d<bd then bd=d; best=p end
+    end
+    return best
 end
 
-local function createESPObjects(p)
+local function wbStart()
+    wbActive=true
+    wbConn1=RunService.Heartbeat:Connect(function()
+        if not wbActive then return end
+        wbTarget=wbFind()
+    end)
+    local GM=Mods.GunModule
+    local UM=Mods.util
+    if not GM then return end
+    local orig=GM.StartShooting; wbOldFunc=orig
+    GM.StartShooting=function(gs,...)
+        local res={orig(gs,...)}
+        if not gs.ClientFighter or not gs.ClientFighter.IsLocalPlayer then return table.unpack(res) end
+        local sd=res[3]; if not sd or typeof(sd)~="table" then return table.unpack(res) end
+        res[4]=true
+        local tgp=wbTarget
+        if not wbActive or not tgp or not tgp.Character then return table.unpack(res) end
+        local hitPart=wbCfg.part=="Head" and tgp.Character:FindFirstChild("Head")
+            or tgp.Character:FindFirstChild("UpperTorso") or tgp.Character:FindFirstChild("HumanoidRootPart")
+        if not hitPart then return table.unpack(res) end
+        -- desync
+        local root=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        if root and wbConn2==nil then
+            wbConn2=RunService.Heartbeat:Connect(function()
+                if not wbActive or not hitPart.Parent then
+                    if wbConn2 then wbConn2:Disconnect(); wbConn2=nil end; return
+                end
+                local sC,sL,sA=root.CFrame,root.AssemblyLinearVelocity,root.AssemblyAngularVelocity
+                root.CFrame=hitPart.CFrame*CFrame.new(0,-5,0)
+                RunService:BindToRenderStep("__wbR",101,function()
+                    pcall(function() root.CFrame=sC; root.AssemblyLinearVelocity=sL; root.AssemblyAngularVelocity=sA end)
+                    RunService:UnbindFromRenderStep("__wbR")
+                end)
+            end)
+        end
+        task.wait(0.1)
+        if UM then
+            pcall(function()
+                local tp=hitPart.Position; local tcf=hitPart.CFrame
+                sd[utf8.char(0)]=UM:EncodeCFrame(CFrame.new(tp-Vector3.new(0,3,0),tp))
+                sd[utf8.char(1)]=UM:EncodeCFrame(CFrame.new(tp))
+                sd[utf8.char(2)]=hitPart
+                sd[utf8.char(3)]=UM:EncodeCFrame(tcf:ToObjectSpace(CFrame.new(tp)))
+                if sd.Hitbox then sd.Hitbox=wbCfg.part=="Head" and "Head" or "Body" end
+            end)
+        end
+        if wbTask then task.cancel(wbTask) end
+        wbTask=task.delay(0.15,function()
+            if wbConn2 then wbConn2:Disconnect(); wbConn2=nil end
+        end)
+        return table.unpack(res)
+    end
+end
+
+local function wbStop()
+    wbActive=false
+    if wbConn1 then wbConn1:Disconnect(); wbConn1=nil end
+    if wbConn2 then wbConn2:Disconnect(); wbConn2=nil end
+    if wbTask then task.cancel(wbTask); wbTask=nil end
+    if wbOldFunc and Mods.GunModule then Mods.GunModule.StartShooting=wbOldFunc; wbOldFunc=nil end
+end
+
+-- =============================================
+--   ESP
+-- =============================================
+
+local espPool,espValid={},{}
+local SKEL15={{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"LowerTorso","LeftUpperLeg"},{"LowerTorso","RightUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"RightUpperLeg","RightLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"RightLowerLeg","RightFoot"},{"UpperTorso","LeftUpperArm"},{"UpperTorso","RightUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"RightUpperArm","RightLowerArm"},{"LeftLowerArm","LeftHand"},{"RightLowerArm","RightHand"}}
+local SKEL6={{"Head","Torso"},{"Torso","Left Arm"},{"Torso","Right Arm"},{"Torso","Left Leg"},{"Torso","Right Leg"}}
+local MAXB=math.max(#SKEL15,#SKEL6)
+
+local function nL(pr) local d=Drawing.new("Line");d.Visible=false;d.Thickness=1.5;d.Color=Color3.new(1,1,1);d.ZIndex=5;if pr then for k,v in pairs(pr) do d[k]=v end end;return d end
+local function nT(pr) local d=Drawing.new("Text");d.Visible=false;d.Size=13;d.Center=true;d.Outline=true;d.Font=Drawing.Fonts.UI;d.Color=Color3.new(1,1,1);d.ZIndex=7;if pr then for k,v in pairs(pr) do d[k]=v end end;return d end
+local function nSq(pr) local d=Drawing.new("Square");d.Visible=false;d.Filled=true;d.Color=Color3.new(1,1,1);d.Transparency=0.75;d.ZIndex=3;if pr then for k,v in pairs(pr) do d[k]=v end end;return d end
+
+local function mkESP(p)
     if espPool[p] then return end
-    local obj = {
-        bT=newLine(),bB=newLine(),bL=newLine(),bR=newLine(),
-        cTLh=newLine({ZIndex=6}),cTLv=newLine({ZIndex=6}),
-        cTRh=newLine({ZIndex=6}),cTRv=newLine({ZIndex=6}),
-        cBLh=newLine({ZIndex=6}),cBLv=newLine({ZIndex=6}),
-        cBRh=newLine({ZIndex=6}),cBRv=newLine({ZIndex=6}),
-        fill=newSquare(),
-        nameTag=newText({Size=13}),
-        weaponTag=newText({Size=11,Color=Color3.fromRGB(160,160,255)}),
-        distTag=newText({Size=11,Color=Color3.fromRGB(180,180,180)}),
-        hpBg=newLine({ZIndex=5,Thickness=5,Color=Color3.new(0,0,0)}),
-        hpFg=newLine({ZIndex=6,Thickness=3,Color=Color3.fromRGB(60,220,60)}),
-        bones={}
-    }
-    for i=1,MAX_BONES do obj.bones[i]=newLine({ZIndex=5,Color=Color3.fromRGB(255,220,0)}) end
-    espPool[p]=obj
+    local o={bT=nL(),bB=nL(),bL=nL(),bR=nL(),cTLh=nL({ZIndex=6}),cTLv=nL({ZIndex=6}),cTRh=nL({ZIndex=6}),cTRv=nL({ZIndex=6}),cBLh=nL({ZIndex=6}),cBLv=nL({ZIndex=6}),cBRh=nL({ZIndex=6}),cBRv=nL({ZIndex=6}),fill=nSq(),nameT=nT(),weapT=nT({Size=11,Color=Color3.fromRGB(160,160,255)}),distT=nT({Size=11,Color=Color3.fromRGB(180,180,180)}),hpBg=nL({ZIndex=5,Thickness=5,Color=Color3.new(0,0,0)}),hpFg=nL({ZIndex=6,Thickness=3,Color=Color3.fromRGB(60,220,60)}),bones={}}
+    for i=1,MAXB do o.bones[i]=nL({ZIndex=5,Color=Color3.fromRGB(255,220,0)}) end
+    espPool[p]=o
 end
 
-local function destroyESPObjects(p)
-    local obj = espPool[p]; if not obj then return end
-    local keys = {"bT","bB","bL","bR","cTLh","cTLv","cTRh","cTRv","cBLh","cBLv","cBRh","cBRv","fill","nameTag","weaponTag","distTag","hpBg","hpFg"}
-    for _,k in ipairs(keys) do pcall(function() obj[k]:Remove() end) end
-    for _,bone in ipairs(obj.bones) do pcall(function() bone:Remove() end) end
+local function rmESP(p)
+    local o=espPool[p]; if not o then return end
+    for _,k in ipairs({"bT","bB","bL","bR","cTLh","cTLv","cTRh","cTRv","cBLh","cBLv","cBRh","cBRv","fill","nameT","weapT","distT","hpBg","hpFg"}) do
+        pcall(function() o[k]:Remove() end)
+    end
+    for _,b in ipairs(o.bones) do pcall(function() b:Remove() end) end
     espPool[p]=nil
 end
 
-local function hideObj(obj)
-    if not obj then return end
-    local keys = {"bT","bB","bL","bR","cTLh","cTLv","cTRh","cTRv","cBLh","cBLv","cBRh","cBRv","fill","nameTag","weaponTag","distTag","hpBg","hpFg"}
-    for _,k in ipairs(keys) do if obj[k] then obj[k].Visible=false end end
-    for _,bone in ipairs(obj.bones) do bone.Visible=false end
+local function hideESP(o)
+    if not o then return end
+    for _,k in ipairs({"bT","bB","bL","bR","cTLh","cTLv","cTRh","cTRv","cBLh","cBLv","cBRh","cBRv","fill","nameT","weapT","distT","hpBg","hpFg"}) do
+        if o[k] then o[k].Visible=false end
+    end
+    for _,b in ipairs(o.bones) do b.Visible=false end
 end
 
-local function getBox(hrp, head)
-    local rootPos = hrp.Position
-    local headTop = head.Position+Vector3.new(0,0.6,0)
-    local yTop = headTop.Y-rootPos.Y
-    local yBot, hw = -3.0, 1.05
-    local corners3d = {
-        Vector3.new(rootPos.X-hw,rootPos.Y+yBot,rootPos.Z-hw),
-        Vector3.new(rootPos.X+hw,rootPos.Y+yBot,rootPos.Z-hw),
-        Vector3.new(rootPos.X-hw,rootPos.Y+yBot,rootPos.Z+hw),
-        Vector3.new(rootPos.X+hw,rootPos.Y+yBot,rootPos.Z+hw),
-        Vector3.new(rootPos.X-hw,rootPos.Y+yTop,rootPos.Z-hw),
-        Vector3.new(rootPos.X+hw,rootPos.Y+yTop,rootPos.Z-hw),
-        Vector3.new(rootPos.X-hw,rootPos.Y+yTop,rootPos.Z+hw),
-        Vector3.new(rootPos.X+hw,rootPos.Y+yTop,rootPos.Z+hw),
-    }
-    local minX,minY,maxX,maxY,any = math.huge,math.huge,-math.huge,-math.huge,false
-    for _,corner in ipairs(corners3d) do
-        local sp,onScreen = cam:WorldToViewportPoint(corner)
-        if onScreen and sp.Z>0 then
-            any=true
-            if sp.X<minX then minX=sp.X end
-            if sp.Y<minY then minY=sp.Y end
-            if sp.X>maxX then maxX=sp.X end
-            if sp.Y>maxY then maxY=sp.Y end
-        end
+local function getBox(hrp,head)
+    local rp=hrp.Position; local ht=head.Position+Vector3.new(0,0.6,0)
+    local yT=ht.Y-rp.Y; local yB=-3; local hw=1.05
+    local c3d={Vector3.new(rp.X-hw,rp.Y+yB,rp.Z-hw),Vector3.new(rp.X+hw,rp.Y+yB,rp.Z-hw),Vector3.new(rp.X-hw,rp.Y+yB,rp.Z+hw),Vector3.new(rp.X+hw,rp.Y+yB,rp.Z+hw),Vector3.new(rp.X-hw,rp.Y+yT,rp.Z-hw),Vector3.new(rp.X+hw,rp.Y+yT,rp.Z-hw),Vector3.new(rp.X-hw,rp.Y+yT,rp.Z+hw),Vector3.new(rp.X+hw,rp.Y+yT,rp.Z+hw)}
+    local mnX,mnY,mxX,mxY,any=math.huge,math.huge,-math.huge,-math.huge,false
+    for _,c in ipairs(c3d) do
+        local sp,on=cam:WorldToViewportPoint(c)
+        if on and sp.Z>0 then any=true; if sp.X<mnX then mnX=sp.X end; if sp.Y<mnY then mnY=sp.Y end; if sp.X>mxX then mxX=sp.X end; if sp.Y>mxY then mxY=sp.Y end end
     end
     if not any then return nil end
-    local vx,vy = cam.ViewportSize.X, cam.ViewportSize.Y
-    minX=math.clamp(minX,0,vx); minY=math.clamp(minY,0,vy)
-    maxX=math.clamp(maxX,0,vx); maxY=math.clamp(maxY,0,vy)
-    local w,h = maxX-minX, maxY-minY
+    local vx,vy=cam.ViewportSize.X,cam.ViewportSize.Y
+    mnX=math.clamp(mnX,0,vx);mnY=math.clamp(mnY,0,vy);mxX=math.clamp(mxX,0,vx);mxY=math.clamp(mxY,0,vy)
+    local w,h=mxX-mnX,mxY-mnY
     if w<2 or h<2 then return nil end
-    return minX,minY,w,h
+    return mnX,mnY,w,h
 end
 
-local function getHPColor(pct)
-    if not espCfg.healthBarGradient then return Color3.fromRGB(60,220,60) end
-    pct = math.clamp(pct,0,1)
-    if pct>=0.5 then
-        local t=(pct-0.5)/0.5
-        return Color3.fromRGB(math.floor(255*(1-t)),210,0)
-    else
-        local t=pct/0.5
-        return Color3.fromRGB(210,math.floor(210*t),0)
-    end
+local function hpCol(pct)
+    if not espCfg.hpGrad then return Color3.fromRGB(60,220,60) end
+    pct=math.clamp(pct,0,1)
+    if pct>=0.5 then return Color3.fromRGB(math.floor(255*(1-(pct-0.5)/0.5)),210,0)
+    else return Color3.fromRGB(210,math.floor(210*(pct/0.5)),0) end
 end
 
-local function getWeapon(char)
-    if not char then return "None" end
-    local p = Players:GetPlayerFromCharacter(char)
+local function getWeap(char)
+    if not char then return "?" end
+    local p=Players:GetPlayerFromCharacter(char)
     if p then
-        local n = p:GetAttribute("EquippedItemName") or p:GetAttribute("EquippedItem")
-            or p:GetAttribute("WeaponName") or p:GetAttribute("Weapon")
-        if n and type(n)=="string" and n~="" then return n end
+        local n=p:GetAttribute("EquippedItemName") or p:GetAttribute("EquippedItem") or p:GetAttribute("WeaponName")
+        if n and n~="" then return tostring(n) end
     end
-    local cn = char:GetAttribute("EquippedItemName") or char:GetAttribute("EquippedItem")
-        or char:GetAttribute("WeaponName") or char:GetAttribute("Weapon")
-    if cn and type(cn)=="string" and cn~="" then return cn end
     for _,v in ipairs(char:GetChildren()) do
         if v:IsA("Model") and v.Name~="Animate" then
-            local l = v.Name:lower()
+            local l=v.Name:lower()
             if not l:find("accessor") and not l:find("hair") then return v.Name end
         end
     end
-    for _,v in ipairs(char:GetChildren()) do if v:IsA("Tool") then return v.Name end end
-    return "None"
+    return "?"
 end
 
-local function setLine(ln,x1,y1,x2,y2,color)
+local function sL(ln,x1,y1,x2,y2,col)
     ln.From=Vector2.new(x1,y1); ln.To=Vector2.new(x2,y2)
-    ln.Color=color; ln.Thickness=1.5; ln.Visible=true
+    ln.Color=col; ln.Thickness=1.5; ln.Visible=true
 end
 
-local function renderESP()
-    table.clear(espValidSet)
-    if not espCfg.enabled then
-        for _,obj in pairs(espPool) do hideObj(obj) end
+local function doESP()
+    table.clear(espValid)
+    if not espCfg.on then
+        for _,o in pairs(espPool) do hideESP(o) end
         return
     end
-    local camPos = cam.CFrame.Position
-    local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-    local myPos = myRoot and myRoot.Position or camPos
+    local cp=cam.CFrame.Position
+    local mr=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    local mp=mr and mr.Position or cp
     for _,p in ipairs(Players:GetPlayers()) do
         if p==lp then continue end
-        espValidSet[p]=true
-        if not espPool[p] then createESPObjects(p) end
-        local obj = espPool[p]
-        if espCfg.teamCheck and sameTm(p) then hideObj(obj); continue end
-        local char = p.Character; if not char then hideObj(obj); continue end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local head = char:FindFirstChild("Head")
-        if not hum or not hrp or not head or hum.Health<=0 then hideObj(obj); continue end
-        local dist = (myPos-hrp.Position).Magnitude
-        if dist>espCfg.maxDist then hideObj(obj); continue end
-        local headSP,headOn = cam:WorldToViewportPoint(head.Position)
-        if not headOn or headSP.Z<=0 then hideObj(obj); continue end
-        local visible = false
-        if espCfg.colorByVisibility or espCfg.visibleOnly then visible=isVis(camPos,head) end
-        if espCfg.visibleOnly and not visible then hideObj(obj); continue end
-        local bx,by,bw,bh = getBox(hrp,head)
-        if not bx then hideObj(obj); continue end
-        local boxCol = espCfg.colorByVisibility and (visible and espCfg.boxVisible or espCfg.boxEnemy) or espCfg.boxColor
+        espValid[p]=true
+        if not espPool[p] then mkESP(p) end
+        local o=espPool[p]
+        if espCfg.teamCheck and sameTm(p) then hideESP(o); continue end
+        local char=p.Character; if not char then hideESP(o); continue end
+        local hum=char:FindFirstChildOfClass("Humanoid")
+        local hrp=char:FindFirstChild("HumanoidRootPart")
+        local head=char:FindFirstChild("Head")
+        if not hum or not hrp or not head or hum.Health<=0 then hideESP(o); continue end
+        local dist=(mp-hrp.Position).Magnitude
+        if dist>espCfg.maxDist then hideESP(o); continue end
+        local hsp,hon=cam:WorldToViewportPoint(head.Position)
+        if not hon or hsp.Z<=0 then hideESP(o); continue end
+        local vis=false
+        if espCfg.colorVis or espCfg.visOnly then vis=isVis(cp,head) end
+        if espCfg.visOnly and not vis then hideESP(o); continue end
+        local bx,by,bw,bh=getBox(hrp,head)
+        if not bx then hideESP(o); continue end
+        local bc=espCfg.colorVis and (vis and espCfg.visCol or espCfg.enemyCol) or espCfg.boxCol
 
+        -- box
         if espCfg.box and not espCfg.corners then
-            setLine(obj.bT,bx,by,bx+bw,by,boxCol)
-            setLine(obj.bB,bx,by+bh,bx+bw,by+bh,boxCol)
-            setLine(obj.bL,bx,by,bx,by+bh,boxCol)
-            setLine(obj.bR,bx+bw,by,bx+bw,by+bh,boxCol)
-            obj.cTLh.Visible=false;obj.cTLv.Visible=false
-            obj.cTRh.Visible=false;obj.cTRv.Visible=false
-            obj.cBLh.Visible=false;obj.cBLv.Visible=false
-            obj.cBRh.Visible=false;obj.cBRv.Visible=false
+            sL(o.bT,bx,by,bx+bw,by,bc);sL(o.bB,bx,by+bh,bx+bw,by+bh,bc)
+            sL(o.bL,bx,by,bx,by+bh,bc);sL(o.bR,bx+bw,by,bx+bw,by+bh,bc)
+            o.cTLh.Visible=false;o.cTLv.Visible=false;o.cTRh.Visible=false;o.cTRv.Visible=false
+            o.cBLh.Visible=false;o.cBLv.Visible=false;o.cBRh.Visible=false;o.cBRv.Visible=false
         elseif espCfg.corners then
-            obj.bT.Visible=false;obj.bB.Visible=false
-            obj.bL.Visible=false;obj.bR.Visible=false
-            local cl = math.floor(math.min(bw,bh)*espCfg.cornerLength)
-            setLine(obj.cTLh,bx,by,bx+cl,by,boxCol);setLine(obj.cTLv,bx,by,bx,by+cl,boxCol)
-            setLine(obj.cTRh,bx+bw-cl,by,bx+bw,by,boxCol);setLine(obj.cTRv,bx+bw,by,bx+bw,by+cl,boxCol)
-            setLine(obj.cBLh,bx,by+bh,bx+cl,by+bh,boxCol);setLine(obj.cBLv,bx,by+bh-cl,bx,by+bh,boxCol)
-            setLine(obj.cBRh,bx+bw-cl,by+bh,bx+bw,by+bh,boxCol);setLine(obj.cBRv,bx+bw,by+bh-cl,bx+bw,by+bh,boxCol)
+            o.bT.Visible=false;o.bB.Visible=false;o.bL.Visible=false;o.bR.Visible=false
+            local cl=math.floor(math.min(bw,bh)*espCfg.cornerLen)
+            sL(o.cTLh,bx,by,bx+cl,by,bc);sL(o.cTLv,bx,by,bx,by+cl,bc)
+            sL(o.cTRh,bx+bw-cl,by,bx+bw,by,bc);sL(o.cTRv,bx+bw,by,bx+bw,by+cl,bc)
+            sL(o.cBLh,bx,by+bh,bx+cl,by+bh,bc);sL(o.cBLv,bx,by+bh-cl,bx,by+bh,bc)
+            sL(o.cBRh,bx+bw-cl,by+bh,bx+bw,by+bh,bc);sL(o.cBRv,bx+bw,by+bh-cl,bx+bw,by+bh,bc)
         else
-            obj.bT.Visible=false;obj.bB.Visible=false;obj.bL.Visible=false;obj.bR.Visible=false
-            obj.cTLh.Visible=false;obj.cTLv.Visible=false;obj.cTRh.Visible=false;obj.cTRv.Visible=false
-            obj.cBLh.Visible=false;obj.cBLv.Visible=false;obj.cBRh.Visible=false;obj.cBRv.Visible=false
+            for _,k in ipairs({"bT","bB","bL","bR","cTLh","cTLv","cTRh","cTRv","cBLh","cBLv","cBRh","cBRv"}) do o[k].Visible=false end
         end
 
+        -- fill
         if espCfg.fill then
-            obj.fill.Position=Vector2.new(bx,by); obj.fill.Size=Vector2.new(bw,bh)
-            obj.fill.Color=espCfg.fillColor; obj.fill.Transparency=espCfg.fillTrans; obj.fill.Visible=true
-        else obj.fill.Visible=false end
+            o.fill.Position=Vector2.new(bx,by);o.fill.Size=Vector2.new(bw,bh)
+            o.fill.Color=espCfg.fillCol;o.fill.Transparency=espCfg.fillAlpha;o.fill.Visible=true
+        else o.fill.Visible=false end
 
-        if espCfg.skeleton then
-            local isR6 = char:FindFirstChild("Torso")~=nil
-            local bDefs = isR6 and SKEL_R6 or SKEL_R15
-            for i,bdef in ipairs(bDefs) do
-                local pA,pB = char:FindFirstChild(bdef[1]), char:FindFirstChild(bdef[2])
-                local ln = obj.bones[i]
+        -- skeleton
+        if espCfg.skel then
+            local isR6=char:FindFirstChild("Torso")~=nil
+            local bd=isR6 and SKEL6 or SKEL15
+            for i,df in ipairs(bd) do
+                local pA,pB=char:FindFirstChild(df[1]),char:FindFirstChild(df[2])
+                local ln=o.bones[i]
                 if pA and pB and ln then
-                    local spA,onA = cam:WorldToViewportPoint(pA.Position)
-                    local spB,onB = cam:WorldToViewportPoint(pB.Position)
-                    if onA and onB and spA.Z>0 and spB.Z>0 then
-                        ln.From=Vector2.new(spA.X,spA.Y); ln.To=Vector2.new(spB.X,spB.Y)
-                        ln.Color=espCfg.skelColor; ln.Thickness=1.5; ln.Visible=true
+                    local sA,oA=cam:WorldToViewportPoint(pA.Position)
+                    local sB,oB=cam:WorldToViewportPoint(pB.Position)
+                    if oA and oB and sA.Z>0 and sB.Z>0 then
+                        ln.From=Vector2.new(sA.X,sA.Y);ln.To=Vector2.new(sB.X,sB.Y)
+                        ln.Color=espCfg.skelCol;ln.Thickness=1.5;ln.Visible=true
                     else ln.Visible=false end
                 elseif ln then ln.Visible=false end
             end
-            for i=#bDefs+1,MAX_BONES do if obj.bones[i] then obj.bones[i].Visible=false end end
-        else for _,bone in ipairs(obj.bones) do bone.Visible=false end end
+            for i=#bd+1,MAXB do if o.bones[i] then o.bones[i].Visible=false end end
+        else for _,b in ipairs(o.bones) do b.Visible=false end end
 
+        -- name
         if espCfg.name then
-            obj.nameTag.Text = p.DisplayName~="" and p.DisplayName or p.Name
-            obj.nameTag.Size=espCfg.nameSize; obj.nameTag.Color=espCfg.nameColor
-            obj.nameTag.Position=Vector2.new(bx+bw/2, by-espCfg.nameSize-4)
-            obj.nameTag.Visible=true
-        else obj.nameTag.Visible=false end
+            o.nameT.Text=p.DisplayName~="" and p.DisplayName or p.Name
+            o.nameT.Size=espCfg.nameSize;o.nameT.Color=espCfg.nameCol
+            o.nameT.Position=Vector2.new(bx+bw/2,by-espCfg.nameSize-4);o.nameT.Visible=true
+        else o.nameT.Visible=false end
 
+        -- weapon
         if espCfg.weapon then
-            local nameOff = espCfg.name and (espCfg.nameSize+2) or 0
-            obj.weaponTag.Text="["..getWeapon(char).."]"
-            obj.weaponTag.Size=espCfg.weaponSize; obj.weaponTag.Color=espCfg.weaponColor
-            obj.weaponTag.Position=Vector2.new(bx+bw/2, by-espCfg.weaponSize-4-nameOff)
-            obj.weaponTag.Visible=true
-        else obj.weaponTag.Visible=false end
+            local no=espCfg.name and espCfg.nameSize+2 or 0
+            o.weapT.Text="["..getWeap(char).."]"
+            o.weapT.Size=espCfg.weapSize;o.weapT.Color=espCfg.weapCol
+            o.weapT.Position=Vector2.new(bx+bw/2,by-espCfg.weapSize-4-no);o.weapT.Visible=true
+        else o.weapT.Visible=false end
 
-        if espCfg.distance then
-            obj.distTag.Text=math.floor(dist).."m"
-            obj.distTag.Size=espCfg.distSize; obj.distTag.Color=espCfg.distColor
-            obj.distTag.Position=Vector2.new(bx+bw/2, by+bh+4)
-            obj.distTag.Visible=true
-        else obj.distTag.Visible=false end
+        -- dist
+        if espCfg.dist then
+            o.distT.Text=math.floor(dist).."m"
+            o.distT.Size=espCfg.distSize;o.distT.Color=espCfg.distCol
+            o.distT.Position=Vector2.new(bx+bw/2,by+bh+4);o.distT.Visible=true
+        else o.distT.Visible=false end
 
-        if espCfg.healthBar then
-            local hp = math.clamp(hum.Health,0,hum.MaxHealth)
-            local pct = hum.MaxHealth>0 and (hp/hum.MaxHealth) or 0
-            local hc = getHPColor(pct)
-            local bW,bO,s = espCfg.hpBarWidth, espCfg.hpBarOffset, espCfg.healthBarStyle
+        -- hp
+        if espCfg.hp then
+            local hp=math.clamp(hum.Health,0,hum.MaxHealth)
+            local pct=hum.MaxHealth>0 and hp/hum.MaxHealth or 0
+            local hc=hpCol(pct)
+            local bW,bO,s=espCfg.hpW,espCfg.hpOff,espCfg.hpStyle
             local bgF,bgT,fgF,fgT
-            if s=="Left" then
-                local x=bx-bO-bW
-                bgF=Vector2.new(x,by); bgT=Vector2.new(x,by+bh)
-                fgF=Vector2.new(x,by+bh); fgT=Vector2.new(x,by+bh-bh*pct)
-            elseif s=="Right" then
-                local x=bx+bw+bO+bW
-                bgF=Vector2.new(x,by); bgT=Vector2.new(x,by+bh)
-                fgF=Vector2.new(x,by+bh); fgT=Vector2.new(x,by+bh-bh*pct)
-            elseif s=="Bottom" then
-                local y=by+bh+bO+bW
-                bgF=Vector2.new(bx,y); bgT=Vector2.new(bx+bw,y)
-                fgF=Vector2.new(bx,y); fgT=Vector2.new(bx+bw*pct,y)
-            else
-                local y=by-bO-bW
-                bgF=Vector2.new(bx,y); bgT=Vector2.new(bx+bw,y)
-                fgF=Vector2.new(bx,y); fgT=Vector2.new(bx+bw*pct,y)
-            end
-            obj.hpBg.From=bgF; obj.hpBg.To=bgT; obj.hpBg.Thickness=bW+2
-            obj.hpBg.Color=Color3.new(0,0,0); obj.hpBg.Visible=true
-            obj.hpFg.From=fgF; obj.hpFg.To=fgT; obj.hpFg.Thickness=bW
-            obj.hpFg.Color=hc; obj.hpFg.Visible=true
-        else obj.hpBg.Visible=false; obj.hpFg.Visible=false end
+            if s=="Left" then local x=bx-bO-bW;bgF=Vector2.new(x,by);bgT=Vector2.new(x,by+bh);fgF=Vector2.new(x,by+bh);fgT=Vector2.new(x,by+bh-bh*pct)
+            elseif s=="Right" then local x=bx+bw+bO+bW;bgF=Vector2.new(x,by);bgT=Vector2.new(x,by+bh);fgF=Vector2.new(x,by+bh);fgT=Vector2.new(x,by+bh-bh*pct)
+            elseif s=="Bottom" then local y=by+bh+bO+bW;bgF=Vector2.new(bx,y);bgT=Vector2.new(bx+bw,y);fgF=Vector2.new(bx,y);fgT=Vector2.new(bx+bw*pct,y)
+            else local y=by-bO-bW;bgF=Vector2.new(bx,y);bgT=Vector2.new(bx+bw,y);fgF=Vector2.new(bx,y);fgT=Vector2.new(bx+bw*pct,y) end
+            o.hpBg.From=bgF;o.hpBg.To=bgT;o.hpBg.Thickness=bW+2;o.hpBg.Color=Color3.new(0,0,0);o.hpBg.Visible=true
+            o.hpFg.From=fgF;o.hpFg.To=fgT;o.hpFg.Thickness=bW;o.hpFg.Color=hc;o.hpFg.Visible=true
+        else o.hpBg.Visible=false;o.hpFg.Visible=false end
     end
-    for p in pairs(espPool) do
-        if not espValidSet[p] then destroyESPObjects(p) end
-    end
+    for p in pairs(espPool) do if not espValid[p] then rmESP(p) end end
 end
 
-Players.PlayerRemoving:Connect(function(p) destroyESPObjects(p) end)
+Players.PlayerRemoving:Connect(function(p) rmESP(p) end)
 
 -- =============================================
---   Skybox logic
+--   SKYBOX
 -- =============================================
 
-local function applySkybox(name)
+local function applySky(name)
     local d=SKYBOXES[name]; if not d then return end
     if not origSky then
         local s=ws.Terrain:FindFirstChildOfClass("Sky")
@@ -1189,186 +959,78 @@ local function applySkybox(name)
     end
     local s=ws.Terrain:FindFirstChildOfClass("Sky")
     if not s then s=Instance.new("Sky"); s.Parent=ws.Terrain end
-    s.SkyboxBk=d.Bk; s.SkyboxDn=d.Dn; s.SkyboxFt=d.Ft
-    s.SkyboxLf=d.Lf; s.SkyboxRt=d.Rt; s.SkyboxUp=d.Up
+    s.SkyboxBk=d.Bk;s.SkyboxDn=d.Dn;s.SkyboxFt=d.Ft;s.SkyboxLf=d.Lf;s.SkyboxRt=d.Rt;s.SkyboxUp=d.Up
     local a=ws.Terrain:FindFirstChildOfClass("Atmosphere")
-    if d.isNight then
-        Lighting.ClockTime=0; Lighting.Ambient=Color3.fromRGB(30,30,60)
-        if a then a.Density=0.8 end
-    elseif d.isSpace then
-        Lighting.ClockTime=0; Lighting.Ambient=Color3.fromRGB(10,10,20); Lighting.Brightness=0
-    else
-        Lighting.ClockTime=14; Lighting.Ambient=Color3.fromRGB(70,70,70); Lighting.Brightness=2
-    end
+    if d.isNight then Lighting.ClockTime=0;Lighting.Ambient=Color3.fromRGB(30,30,60);if a then a.Density=0.8 end
+    elseif d.isSpace then Lighting.ClockTime=0;Lighting.Ambient=Color3.fromRGB(10,10,20);Lighting.Brightness=0
+    else Lighting.ClockTime=14;Lighting.Ambient=Color3.fromRGB(70,70,70);Lighting.Brightness=2 end
 end
 
 local function restoreSky()
     if not origSky then return end
     local s=ws.Terrain:FindFirstChildOfClass("Sky"); if not s then origSky=nil; return end
-    s.SkyboxBk=origSky.Bk; s.SkyboxDn=origSky.Dn; s.SkyboxFt=origSky.Ft
-    s.SkyboxLf=origSky.Lf; s.SkyboxRt=origSky.Rt; s.SkyboxUp=origSky.Up
+    s.SkyboxBk=origSky.Bk;s.SkyboxDn=origSky.Dn;s.SkyboxFt=origSky.Ft
+    s.SkyboxLf=origSky.Lf;s.SkyboxRt=origSky.Rt;s.SkyboxUp=origSky.Up
     origSky=nil
 end
 
 -- =============================================
---   Skin logic
+--   SKINS (lightweight, no require)
 -- =============================================
 
-local function buildWeaponList()
-    local list = {}
-    for _,t in ipairs({PRIMARY_WEAPONS,SECONDARY_WEAPONS,MELEE_WEAPONS,UTILITY_WEAPONS}) do
-        for _,n in ipairs(t) do table.insert(list,n) end
-    end
-    table.sort(list); return list
-end
-
-local function cosmeticIsForWeapon(cd, wn)
-    if not cd or not wn then return false end
-    if cd.Universal then return true end
-    for _,f in ipairs({"Weapon","Item","WeaponName","ItemName"}) do
-        local w=cd[f]
-        if w then
-            if type(w)=="string" and w==wn then return true end
-            if type(w)=="table" then for _,n in pairs(w) do if tostring(n)==wn then return true end end end
-        end
-    end
-    for _,f in ipairs({"Weapons","Items","WeaponNames","ItemNames","AppliesTo"}) do
-        local w=cd[f]
-        if w and type(w)=="table" then for _,n in pairs(w) do if tostring(n)==wn then return true end end end
-    end
-    return false
-end
-
-local function cloneCosmetic(name, cType, opts)
-    if not CosmeticLibrary or not CosmeticLibrary.Cosmetics then return nil end
-    local base = CosmeticLibrary.Cosmetics[name]; if not base then return nil end
-    local data={}; for k,v in pairs(base) do data[k]=v end
-    data.Name=name; data.Type=data.Type or cType; data.Seed=math.random(1,1000000)
-    if enums then pcall(function() local e=enums:ToEnum(name); if e then data.Enum=e; data.ObjectID=e end end) end
-    if opts and opts.inverted then data.Inverted=true end
-    return data
-end
-
-local function saveSkinConfig()
+local function saveSkins()
     if not writefile then return end
     task.spawn(function() pcall(function()
-        local config={equipped={},favorites=favorites}
-        for w,cs in pairs(equipped) do
-            config.equipped[w]={}
-            for ct,cd in pairs(cs) do
-                if cd and cd.Name then
-                    config.equipped[w][ct]={name=cd.Name,seed=cd.Seed,inverted=cd.Inverted}
-                end
-            end
-        end
         if not isfolder("RivalsScript") then makefolder("RivalsScript") end
-        writefile(skinConfigPath, HttpService:JSONEncode(config))
+        writefile(skinPath,HttpService:JSONEncode({equipped=equipped,favorites=favorites}))
     end) end)
 end
 
-local function loadSkinConfig()
-    if not readfile or not isfile or not isfile(skinConfigPath) then return end
+local function loadSkins()
+    if not readfile or not isfile or not isfile(skinPath) then return end
     pcall(function()
-        local config=HttpService:JSONDecode(readfile(skinConfigPath))
-        if config.equipped then
-            for w,cs in pairs(config.equipped) do
-                equipped[w]={}
-                for ct,cd in pairs(cs) do
-                    local c=cloneCosmetic(cd.name,ct,{inverted=cd.inverted})
-                    if c then c.Seed=cd.seed; equipped[w][ct]=c end
-                end
-            end
-        end
-        favorites=config.favorites or {}
+        local d=HttpService:JSONDecode(readfile(skinPath))
+        equipped=d.equipped or {}
+        favorites=d.favorites or {}
     end)
 end
 
-local function equipCosmetic(w,ct,cn)
+local function equipSkin(w,ct,cn)
     if not w then return end
-    equipped[w]=equipped[w]or{}
+    equipped[w]=equipped[w] or {}
     if not cn or cn=="None" then
         equipped[w][ct]=nil
         if not next(equipped[w]) then equipped[w]=nil end
     else
-        local c=cloneCosmetic(cn,ct)
-        if c then equipped[w][ct]=c end
+        equipped[w][ct]=cn
     end
-    pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end)
-    saveSkinConfig()
+    saveSkins()
 end
 
-local function installSkinHooks()
-    if skinHooksInstalled then return end
-    skinHooksInstalled=true
+local function installSkinHook()
+    if skinHooked then return end
+    skinHooked=true
     task.spawn(function()
         task.wait(1)
-        if DataController then pcall(function()
-            DataController.OwnsAllWeapons=function() return true end
-            DataController.GetUnlockedWeapons=function()
-                local w={}
-                if ItemLibrary and ItemLibrary.Items then
-                    for n,_ in pairs(ItemLibrary.Items) do if not n:find("MISSING_") then w[n]=true end end
-                end
-                return w
-            end
-        end) end
-        if CosmeticLibrary then pcall(function()
-            CosmeticLibrary.OwnsCosmeticNormally=function()return true end
-            CosmeticLibrary.OwnsCosmeticUniversally=function()return true end
-            CosmeticLibrary.OwnsCosmeticForSomething=function()return true end
-            CosmeticLibrary.OwnsCosmeticForWeapon=function()return true end
-            local origOC=CosmeticLibrary.OwnsCosmetic
-            CosmeticLibrary.OwnsCosmetic=function(self,inv,name,wpn)
-                if name and name:find("MISSING_") then return origOC(self,inv,name,wpn) end
-                return true
-            end
-        end) end
-        if DataController then pcall(function()
-            local origGet=DataController.Get
-            DataController.Get=function(self,key)
-                local data=origGet(self,key)
-                if key=="CosmeticInventory" then return setmetatable({},{__index=function() return true end}) end
-                if key=="FavoritedCosmetics" then
-                    local r={}
-                    if data then for k,v in pairs(data) do r[k]=v end end
-                    for w,f in pairs(favorites) do r[w]=r[w]or{}; for n,b in pairs(f) do r[w][n]=b end end
-                    return r
-                end
-                return data
-            end
-            local origGWD=DataController.GetWeaponData
-            DataController.GetWeaponData=function(self,wn)
-                local data={Unlocked=true,Level=100,XP=99999}
-                local od=origGWD(self,wn); if od then for k,v in pairs(od) do data[k]=v end end
-                if equipped[wn] then for ct,cd in pairs(equipped[wn]) do data[ct]=cd end end
-                return data
-            end
-        end) end
-        if not hookmetamethod or not EquipCosmeticRemote then return end
+        if not hookmetamethod or not Rem.Equip then return end
         local oldNC; oldNC=hookmetamethod(game,"__namecall",function(self,...)
             if getnamecallmethod()~="FireServer" then return oldNC(self,...) end
             local args={...}
-            if EquipCosmeticRemote and self==EquipCosmeticRemote then
-                local wn,ct,cn=args[1],args[2],args[3]; local opts=args[4]or{}
-                equipped[wn]=equipped[wn]or{}
-                if not cn or cn=="None" or cn=="" then
-                    equipped[wn][ct]=nil
-                    if not next(equipped[wn]) then equipped[wn]=nil end
+            if Rem.Equip and self==Rem.Equip then
+                local w,ct,cn=args[1],args[2],args[3]
+                equipped[w]=equipped[w] or {}
+                if not cn or cn=="None" then
+                    equipped[w][ct]=nil
+                    if not next(equipped[w]) then equipped[w]=nil end
                 else
-                    local c=cloneCosmetic(cn,ct,{inverted=opts.IsInverted})
-                    if c then equipped[wn][ct]=c end
+                    equipped[w][ct]=cn
                 end
-                task.spawn(function()
-                    task.wait(0.1)
-                    pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end)
-                    saveSkinConfig()
-                end)
-                return
+                saveSkins(); return
             end
-            if FavoriteCosmeticRemote and self==FavoriteCosmeticRemote then
-                favorites[args[1]]=favorites[args[1]]or{}
-                favorites[args[1]][args[2]]=args[3]or nil
-                saveSkinConfig(); return
+            if Rem.Favorite and self==Rem.Favorite then
+                favorites[args[1]]=favorites[args[1]] or {}
+                favorites[args[1]][args[2]]=args[3] or nil
+                saveSkins(); return
             end
             return oldNC(self,...)
         end)
@@ -1376,581 +1038,481 @@ local function installSkinHooks()
 end
 
 -- =============================================
---   CREATE WINDUI WINDOW
+--   BUILD UI
 -- =============================================
 
 local Window = Wind.new({
     Name = "Rivals v2.4",
     LoadingTitle = "Rivals",
-    LoadingSubtitle = "Loading features...",
-    ConfigurationSaving = {
-        Enabled = false,
-    },
+    LoadingSubtitle = "by anon",
+    ConfigurationSaving = { Enabled = false },
     KeySystem = false,
 })
 
--- =============================================
---   TABS
--- =============================================
-
-local AimbotTab  = Window:MakeTab({ Name = "Aimbot",  Icon = "rbxassetid://4483345998" })
-local SilentTab  = Window:MakeTab({ Name = "Silent",  Icon = "rbxassetid://4483345998" })
-local RageTab    = Window:MakeTab({ Name = "Ragebot", Icon = "rbxassetid://4483345998" })
-local ESPTab     = Window:MakeTab({ Name = "ESP",     Icon = "rbxassetid://4483345998" })
-local CameraTab  = Window:MakeTab({ Name = "Camera",  Icon = "rbxassetid://4483345998" })
-local SkinsTab   = Window:MakeTab({ Name = "Skins",   Icon = "rbxassetid://4483345998" })
-local MiscTab    = Window:MakeTab({ Name = "Misc",    Icon = "rbxassetid://4483345998" })
-local SkyboxTab  = Window:MakeTab({ Name = "Skybox",  Icon = "rbxassetid://4483345998" })
-local UITab      = Window:MakeTab({ Name = "UI",      Icon = "rbxassetid://4483345998" })
+local TabAimbot  = Window:MakeTab({ Name = "Aimbot",  Icon = "rbxassetid://4483345998" })
+local TabSilent  = Window:MakeTab({ Name = "Silent",  Icon = "rbxassetid://4483345998" })
+local TabRage    = Window:MakeTab({ Name = "Ragebot", Icon = "rbxassetid://4483345998" })
+local TabESP     = Window:MakeTab({ Name = "ESP",     Icon = "rbxassetid://4483345998" })
+local TabCamera  = Window:MakeTab({ Name = "Camera",  Icon = "rbxassetid://4483345998" })
+local TabSkins   = Window:MakeTab({ Name = "Skins",   Icon = "rbxassetid://4483345998" })
+local TabMisc    = Window:MakeTab({ Name = "Misc",    Icon = "rbxassetid://4483345998" })
+local TabSkybox  = Window:MakeTab({ Name = "Skybox",  Icon = "rbxassetid://4483345998" })
+local TabUI      = Window:MakeTab({ Name = "UI",      Icon = "rbxassetid://4483345998" })
 
 -- =============================================
---   AIMBOT TAB
+--   AIMBOT UI
 -- =============================================
 
-local AimSec = AimbotTab:AddSection({ Name = "Aimbot" })
+do
+    local s=TabAimbot:AddSection({Name="Aimbot"})
+    s:AddToggle({Name="Enable Aimbot",Default=false,Callback=function(v)
+        AB.on=v
+        if not v then abTgt=nil;abLockT=0;abDoReact=false;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end
+    end})
+    s:AddDropdown({Name="Aim Part",Default="Head",Options=PARTS,Callback=function(v) AB.part=v end})
+    s:AddDropdown({Name="Lock Mode",Default="Soft",Options={"Soft","Magnet","Curve"},Callback=function(v) AB.lockMode=v;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end})
+    s:AddToggle({Name="Team Check",Default=false,Callback=function(v) AB.team=v end})
+    s:AddToggle({Name="Visible Check",Default=false,Callback=function(v) AB.vis=v end})
+    s:AddToggle({Name="Screen Center",Default=false,Callback=function(v) AB.useCenter=v end})
+    s:AddToggle({Name="Dynamic FOV",Default=false,Callback=function(v) AB.dynFov=v end})
 
-AimSec:AddToggle({
-    Name = "Enable Aimbot", Default = false,
-    Callback = function(v)
-        AB.on = v
-        if not v then
-            abTgt=nil; abLockT=0; abDoReact=false; abPrevPos=nil
-            abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
-        end
-    end
-})
+    local s2=TabAimbot:AddSection({Name="Smoothing"})
+    s2:AddSlider({Name="Base Speed",Min=1,Max=500,Default=100,Color=Color3.fromRGB(255,65,65),Increment=1,ValueName="x0.01",Callback=function(v) AB.speed=v/100 end})
+    s2:AddSlider({Name="Attack Speed",Min=1,Max=500,Default=100,Color=Color3.fromRGB(255,65,65),Increment=1,ValueName="x0.01",Callback=function(v) AB.speedAttack=v/100 end})
+    s2:AddSlider({Name="FOV Scale",Min=0,Max=100,Default=50,Color=Color3.fromRGB(255,65,65),Increment=1,ValueName="%",Callback=function(v) AB.speedScaleFov=v end})
+    s2:AddSlider({Name="Curve Strength",Min=1,Max=400,Default=10,Color=Color3.fromRGB(255,65,65),Increment=1,ValueName="%",Callback=function(v) AB.curvePct=v end})
+    s2:AddSlider({Name="Max Lock Time",Min=1,Max=1000,Default=300,Color=Color3.fromRGB(200,100,255),Increment=1,ValueName="x0.01s",Callback=function(v) AB.maxLock=v/100 end})
+    s2:AddSlider({Name="Reaction Time",Min=0,Max=500,Default=100,Color=Color3.fromRGB(200,100,255),Increment=1,ValueName="ms",Callback=function(v) AB.reactTime=v end})
 
-AimSec:AddDropdown({ Name="Aim Part",  Default="Head",  Options=PARTS,                      Callback=function(v) AB.part=v end })
-AimSec:AddDropdown({ Name="Lock Mode", Default="Soft",  Options={"Soft","Magnet","Curve"},   Callback=function(v) AB.lockMode=v; abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0 end })
-AimSec:AddToggle({ Name="Team Check",     Default=false, Callback=function(v) AB.team=v end })
-AimSec:AddToggle({ Name="Visible Check",  Default=false, Callback=function(v) AB.vis=v end })
-AimSec:AddToggle({ Name="Screen Center",  Default=false, Callback=function(v) AB.useCenter=v end })
-AimSec:AddToggle({ Name="Dynamic FOV",    Default=false, Callback=function(v) AB.dynFov=v end })
-
-local AimSmooth = AimbotTab:AddSection({ Name = "Smoothing & Timing" })
-
-AimSmooth:AddSlider({ Name="Base Speed",     Min=1,  Max=500, Default=100, Color=Color3.fromRGB(255,65,65),  Increment=1, ValueName="x0.01", Callback=function(v) AB.speed=v/100 end })
-AimSmooth:AddSlider({ Name="Attack Speed",   Min=1,  Max=500, Default=100, Color=Color3.fromRGB(255,65,65),  Increment=1, ValueName="x0.01", Callback=function(v) AB.speedAttack=v/100 end })
-AimSmooth:AddSlider({ Name="FOV Scale",      Min=0,  Max=100, Default=50,  Color=Color3.fromRGB(255,65,65),  Increment=1, ValueName="%",      Callback=function(v) AB.speedScaleFov=v end })
-AimSmooth:AddSlider({ Name="Curve Strength", Min=1,  Max=400, Default=10,  Color=Color3.fromRGB(255,65,65),  Increment=1, ValueName="%",      Callback=function(v) AB.curvePct=v end })
-AimSmooth:AddSlider({ Name="Max Lock Time",  Min=1,  Max=1000,Default=300, Color=Color3.fromRGB(200,100,255),Increment=1, ValueName="x0.01s",Callback=function(v) AB.maxLock=v/100 end })
-AimSmooth:AddSlider({ Name="Reaction Time",  Min=0,  Max=500, Default=100, Color=Color3.fromRGB(200,100,255),Increment=1, ValueName="ms",     Callback=function(v) AB.reactTime=v end })
-
-local FOVSec = AimbotTab:AddSection({ Name = "FOV Circle" })
-
-FOVSec:AddToggle({ Name="Show FOV Circle",    Default=false, Callback=function(v) fovCfg.visible=v end })
-FOVSec:AddToggle({ Name="Half Circle",        Default=false, Callback=function(v) fovCfg.half=v end })
-FOVSec:AddToggle({ Name="FOV Screen Center",  Default=false, Callback=function(v) fovCfg.useCenter=v end })
-FOVSec:AddSlider({ Name="FOV Size",           Min=10,Max=500,Default=150, Color=Color3.fromRGB(255,255,100),Increment=1, ValueName="px", Callback=function(v) fovCfg.fovSize=v; AB.fov=v; fovCircle.Radius=v; abCirc.Radius=v end })
-FOVSec:AddSlider({ Name="On Target Radius",   Min=10,Max=500,Default=60,  Color=Color3.fromRGB(255,255,100),Increment=1, ValueName="px", Callback=function(v) fovCfg.onTarget=v end })
-FOVSec:AddSlider({ Name="On Barrier Radius",  Min=10,Max=500,Default=200, Color=Color3.fromRGB(255,255,100),Increment=1, ValueName="px", Callback=function(v) fovCfg.onBarrier=v end })
-FOVSec:AddColorpicker({ Name="FOV Color", Default=Color3.fromRGB(255,255,255), Callback=function(v) fovCfg.color=v; fovCircle.Color=v; fovHalf.Color=v end })
-
--- =============================================
---   SILENT AIM TAB
--- =============================================
-
-local SilSec = SilentTab:AddSection({ Name = "Silent Aim" })
-
-SilSec:AddToggle({
-    Name = "Enable Silent Aim", Default = false,
-    Callback = function(v)
-        silentCfg.enabled=v
-        if v then hookSilent() else unhookSilent() end
-    end
-})
-
-SilSec:AddDropdown({ Name="Target Part",   Default="Head",  Options=PARTS, Callback=function(v) silentCfg.part=v end })
-SilSec:AddToggle({ Name="Visible Check",   Default=false,   Callback=function(v) silentCfg.visCheck=v end })
-SilSec:AddToggle({ Name="Screen Center",   Default=false,   Callback=function(v) silentCfg.useCenter=v end })
-SilSec:AddSlider({ Name="Hit Chance",      Min=1,  Max=100, Default=100, Color=Color3.fromRGB(0,200,255), Increment=1, ValueName="%",      Callback=function(v) silentCfg.hitChance=v end })
-SilSec:AddSlider({ Name="Prediction",      Min=0,  Max=100, Default=0,   Color=Color3.fromRGB(0,200,255), Increment=1, ValueName="x0.05",  Callback=function(v) silentCfg.prediction=v end })
-SilSec:AddSlider({ Name="Silent FOV",      Min=10, Max=600, Default=150, Color=Color3.fromRGB(0,200,255), Increment=1, ValueName="px",     Callback=function(v) silentCfg.fovSize=v; silentCircle.Radius=v end })
-SilSec:AddSlider({ Name="Max Distance",    Min=10, Max=2000,Default=200, Color=Color3.fromRGB(0,200,255), Increment=1, ValueName=" studs", Callback=function(v) silentCfg.maxDist=v end })
-
-local SilFOVSec = SilentTab:AddSection({ Name = "Silent FOV Circle" })
-
-SilFOVSec:AddToggle({
-    Name="Show Silent FOV", Default=false,
-    Callback=function(v) silentCfg.circleVisible=v; if not v then silentCircle.Visible=false end end
-})
-SilFOVSec:AddSlider({ Name="Thickness",  Min=5,  Max=50, Default=15, Color=Color3.fromRGB(0,200,255), Increment=1, ValueName="x0.1",   Callback=function(v) silentCfg.circleThick=v*0.1; silentCircle.Thickness=v*0.1 end })
-SilFOVSec:AddSlider({ Name="Segments",   Min=8,  Max=128,Default=64, Color=Color3.fromRGB(0,200,255), Increment=1, ValueName=" sides", Callback=function(v) silentCircle.NumSides=v end })
-SilFOVSec:AddColorpicker({ Name="Normal Color",    Default=Color3.fromRGB(0,200,255),  Callback=function(v) silentCfg.circleColor=v end })
-SilFOVSec:AddColorpicker({ Name="On Target Color", Default=Color3.fromRGB(255,50,50),  Callback=function(v) silentCfg.targetColor=v end })
-
-local HitSndSec = SilentTab:AddSection({ Name = "Hit Sound" })
-
-HitSndSec:AddToggle({
-    Name="Enable Hit Sound", Default=false,
-    Callback=function(v)
-        hitSoundCfg.enabled=v
-        if v then applyHitSound(hitSoundCfg.soundId,hitSoundCfg.volume,hitSoundCfg.pitch)
-        else stopHitSound() end
-    end
-})
-HitSndSec:AddDropdown({ Name="Sound",   Default=HIT_SOUND_LIST[1], Options=HIT_SOUND_LIST,
-    Callback=function(v) hitSoundCfg.soundId=HIT_SOUNDS[v]; if hitSoundCfg.enabled then applyHitSound(hitSoundCfg.soundId,hitSoundCfg.volume,hitSoundCfg.pitch) end end })
-HitSndSec:AddSlider({ Name="Volume", Min=1,Max=100,Default=100, Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="%",
-    Callback=function(v) hitSoundCfg.volume=v/100; if hitSoundCfg.enabled then applyHitSound(hitSoundCfg.soundId,hitSoundCfg.volume,hitSoundCfg.pitch) end end })
-HitSndSec:AddSlider({ Name="Pitch",  Min=1,Max=30, Default=10,  Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="x0.1",
-    Callback=function(v) hitSoundCfg.pitch=v*0.1; if hitSoundCfg.enabled then applyHitSound(hitSoundCfg.soundId,hitSoundCfg.volume,hitSoundCfg.pitch) end end })
-
--- =============================================
---   RAGEBOT TAB
--- =============================================
-
-local RageSec = RageTab:AddSection({ Name = "Ragebot" })
-
-RageSec:AddToggle({
-    Name="Enable Ragebot", Default=false,
-    Callback=function(v) rageCfg.enabled=v; if v then startRagebot() else stopRagebot() end end
-})
-RageSec:AddToggle({ Name="Improved Manipulation", Default=false, Callback=function(v) rageCfg.improvedManip=v end })
-
-local ImprovSec = RageTab:AddSection({ Name = "Improved Settings" })
-
-ImprovSec:AddSlider({ Name="Scan Angle",       Min=1,Max=90, Default=15, Color=Color3.fromRGB(255,100,0),Increment=1,ValueName="°", Callback=function(v) rageCfg.improv.scanAngle=v end })
-ImprovSec:AddToggle({ Name="Multi-Pass Scan",  Default=false, Callback=function(v) rageCfg.improv.multiPass=v end })
-ImprovSec:AddToggle({ Name="Spiral Scan",      Default=false, Callback=function(v) rageCfg.improv.spiralScan=v end })
-ImprovSec:AddToggle({ Name="Adaptive Distance",Default=false, Callback=function(v) rageCfg.improv.adaptDist=v end })
-
-local VecSec = RageTab:AddSection({ Name = "Vector Y Offsets" })
-
-local vecYLabels = {"Vec 1 Y","Vec 2 Y","Vec 3 Y","Vec 4 Y","Vec 5 Y","Vec 6 Y","Vec 7 Y","Vec 8 Y"}
-local vecYKeys   = {"v1y","v2y","v3y","v4y","v5y","v6y","v7y","v8y"}
-local vecYDefs   = {12,16,20,24,28,32,36,40}
-for i=1,8 do
-    local key = vecYKeys[i]
-    VecSec:AddSlider({ Name=vecYLabels[i], Min=-50,Max=100,Default=vecYDefs[i],
-        Color=Color3.fromRGB(255,100,0),Increment=1,ValueName=" su",
-        Callback=function(v) rageCfg[key]=v; rebuildVectors() end })
+    local s3=TabAimbot:AddSection({Name="FOV Circle"})
+    s3:AddToggle({Name="Show FOV Circle",Default=false,Callback=function(v) fovCfg.show=v end})
+    s3:AddToggle({Name="Half Circle",Default=false,Callback=function(v) fovCfg.half=v end})
+    s3:AddToggle({Name="Screen Center",Default=false,Callback=function(v) fovCfg.useCenter=v end})
+    s3:AddSlider({Name="FOV Size",Min=10,Max=500,Default=150,Color=Color3.fromRGB(255,255,100),Increment=1,ValueName="px",Callback=function(v) fovCfg.size=v;AB.fov=v;fovCirc.Radius=v;abCirc.Radius=v end})
+    s3:AddSlider({Name="On Target Radius",Min=10,Max=500,Default=60,Color=Color3.fromRGB(255,255,100),Increment=1,ValueName="px",Callback=function(v) fovCfg.onTarget=v end})
+    s3:AddSlider({Name="On Barrier Radius",Min=10,Max=500,Default=200,Color=Color3.fromRGB(255,255,100),Increment=1,ValueName="px",Callback=function(v) fovCfg.onBarrier=v end})
+    s3:AddColorpicker({Name="FOV Color",Default=Color3.fromRGB(255,255,255),Callback=function(v) fovCfg.color=v;fovCirc.Color=v;fovHalf.Color=v end})
 end
 
-local VecXSec = RageTab:AddSection({ Name = "Vector X/Z Offsets (1-4)" })
+-- =============================================
+--   SILENT AIM UI
+-- =============================================
 
-for i=1,4 do
-    local xk="v"..i.."x"; local zk="v"..i.."z"
-    VecXSec:AddSlider({ Name="Vec "..i.." X", Min=-20,Max=20,Default=0,
-        Color=Color3.fromRGB(255,150,0),Increment=1,ValueName=" su",
-        Callback=function(v) rageCfg[xk]=v; rebuildVectors() end })
-    VecXSec:AddSlider({ Name="Vec "..i.." Z", Min=-20,Max=20,Default=0,
-        Color=Color3.fromRGB(255,150,0),Increment=1,ValueName=" su",
-        Callback=function(v) rageCfg[zk]=v; rebuildVectors() end })
+do
+    local s=TabSilent:AddSection({Name="Silent Aim"})
+    s:AddToggle({Name="Enable Silent Aim",Default=false,Callback=function(v)
+        silCfg.on=v
+        if v then hookSil() else unhookSil() end
+    end})
+    s:AddDropdown({Name="Target Part",Default="Head",Options=PARTS,Callback=function(v) silCfg.part=v end})
+    s:AddToggle({Name="Visible Check",Default=false,Callback=function(v) silCfg.visCheck=v end})
+    s:AddToggle({Name="Screen Center",Default=false,Callback=function(v) silCfg.useCenter=v end})
+    s:AddSlider({Name="Hit Chance",Min=1,Max=100,Default=100,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="%",Callback=function(v) silCfg.hitChance=v end})
+    s:AddSlider({Name="Prediction",Min=0,Max=100,Default=0,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="x0.05",Callback=function(v) silCfg.prediction=v end})
+    s:AddSlider({Name="Silent FOV",Min=10,Max=600,Default=150,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="px",Callback=function(v) silCfg.fov=v;silCirc.Radius=v end})
+    s:AddSlider({Name="Max Distance",Min=10,Max=2000,Default=200,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName=" studs",Callback=function(v) silCfg.maxDist=v end})
+
+    local s2=TabSilent:AddSection({Name="Silent FOV Circle"})
+    s2:AddToggle({Name="Show Circle",Default=false,Callback=function(v) silCfg.showCircle=v;if not v then silCirc.Visible=false end end})
+    s2:AddSlider({Name="Thickness",Min=5,Max=50,Default=15,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="x0.1",Callback=function(v) silCfg.circleThick=v*0.1;silCirc.Thickness=v*0.1 end})
+    s2:AddColorpicker({Name="Normal Color",Default=Color3.fromRGB(0,200,255),Callback=function(v) silCfg.circleColor=v end})
+    s2:AddColorpicker({Name="On Target Color",Default=Color3.fromRGB(255,50,50),Callback=function(v) silCfg.targetColor=v end})
+
+    local s3=TabSilent:AddSection({Name="Hit Sound"})
+    s3:AddToggle({Name="Enable Hit Sound",Default=false,Callback=function(v)
+        hsCfg.on=v
+        if v then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) else stopHS() end
+    end})
+    s3:AddDropdown({Name="Sound",Default=HIT_SOUND_LIST[1],Options=HIT_SOUND_LIST,Callback=function(v)
+        hsCfg.soundId=HIT_SOUNDS[v]
+        if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end
+    end})
+    s3:AddSlider({Name="Volume",Min=1,Max=100,Default=100,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="%",Callback=function(v) hsCfg.vol=v/100;if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end})
+    s3:AddSlider({Name="Pitch",Min=1,Max=30,Default=10,Color=Color3.fromRGB(0,200,255),Increment=1,ValueName="x0.1",Callback=function(v) hsCfg.pitch=v*0.1;if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end})
 end
 
-local VecActionSec = RageTab:AddSection({ Name = "Actions" })
+-- =============================================
+--   RAGEBOT UI
+-- =============================================
 
-VecActionSec:AddButton({ Name="Reset Vectors", Callback=function()
-    rageCfg.v1y=12;rageCfg.v2y=16;rageCfg.v3y=20;rageCfg.v4y=24
-    rageCfg.v5y=28;rageCfg.v6y=32;rageCfg.v7y=36;rageCfg.v8y=40
-    rageCfg.v1x=0;rageCfg.v2x=0;rageCfg.v3x=0;rageCfg.v4x=0
-    rageCfg.v1z=0;rageCfg.v2z=0;rageCfg.v3z=0;rageCfg.v4z=0
-    rebuildVectors()
-    Wind:Notify({ Title="Ragebot", Content="Vectors reset!", Duration=2 })
-end })
-VecActionSec:AddButton({ Name="Print Vectors", Callback=function()
-    for i,v in ipairs(rageCfg.vectors) do
-        print(("Vec %d: X=%.1f Y=%.1f Z=%.1f"):format(i,v.X,v.Y,v.Z))
+do
+    local s=TabRage:AddSection({Name="Ragebot"})
+    s:AddToggle({Name="Enable Ragebot",Default=false,Callback=function(v)
+        rageCfg.on=v
+        if v then startRage() else stopRage() end
+    end})
+    s:AddToggle({Name="Improved Manipulation",Default=false,Callback=function(v) rageCfg.improved=v end})
+
+    local s2=TabRage:AddSection({Name="Improved Options"})
+    s2:AddSlider({Name="Scan Angle",Min=1,Max=90,Default=15,Color=Color3.fromRGB(255,100,0),Increment=1,ValueName="°",Callback=function(v) rageCfg.scanAngle=v end})
+    s2:AddToggle({Name="Multi-Pass Scan",Default=false,Callback=function(v) rageCfg.multiPass=v end})
+    s2:AddToggle({Name="Spiral Scan",Default=false,Callback=function(v) rageCfg.spiral=v end})
+    s2:AddToggle({Name="Adaptive Distance",Default=false,Callback=function(v) rageCfg.adaptDist=v end})
+
+    local s3=TabRage:AddSection({Name="Vector Y Offsets"})
+    local yk={"v1y","v2y","v3y","v4y","v5y","v6y","v7y","v8y"}
+    local yd={12,16,20,24,28,32,36,40}
+    for i=1,8 do
+        local k=yk[i]
+        s3:AddSlider({Name="Vec "..i.." Y",Min=-50,Max=100,Default=yd[i],Color=Color3.fromRGB(255,100,0),Increment=1,ValueName=" su",Callback=function(v) rageCfg[k]=v;rebuildVec() end})
     end
-    Wind:Notify({ Title="Ragebot", Content="Printed to console!", Duration=2 })
-end })
 
-local WBSec = RageTab:AddSection({ Name = "Wallbang" })
-
-WBSec:AddToggle({
-    Name="Enable Wallbang", Default=false,
-    Callback=function(v) WB.enabled=v; if v then wbState:Start() else wbState:Shutdown() end end
-})
-WBSec:AddDropdown({ Name="Hit Part", Default="Head", Options={"Head","Body"}, Callback=function(v) WB.hitPart=v end })
-WBSec:AddButton({ Name="Find Target Now", Callback=function()
-    local tg=wbState:find()
-    Wind:Notify({ Title="Wallbang", Content=tg and ("Target: "..tg.Name) or "No target!", Duration=3 })
-end })
-
--- =============================================
---   ESP TAB
--- =============================================
-
-local ESPSec = ESPTab:AddSection({ Name = "ESP" })
-
-ESPSec:AddToggle({
-    Name="Enable ESP", Default=false,
-    Callback=function(v)
-        espCfg.enabled=v
-        if v then for _,p in ipairs(Players:GetPlayers()) do if p~=lp then createESPObjects(p) end end
-        else for _,obj in pairs(espPool) do hideObj(obj) end end
+    local s4=TabRage:AddSection({Name="Vector X/Z Offsets"})
+    for i=1,4 do
+        local xk="v"..i.."x"; local zk="v"..i.."z"
+        s4:AddSlider({Name="Vec "..i.." X",Min=-20,Max=20,Default=0,Color=Color3.fromRGB(255,150,0),Increment=1,ValueName=" su",Callback=function(v) rageCfg[xk]=v;rebuildVec() end})
+        s4:AddSlider({Name="Vec "..i.." Z",Min=-20,Max=20,Default=0,Color=Color3.fromRGB(255,150,0),Increment=1,ValueName=" su",Callback=function(v) rageCfg[zk]=v;rebuildVec() end})
     end
-})
 
-ESPSec:AddToggle({ Name="Box",             Default=false, Callback=function(v) espCfg.box=v; if v then espCfg.corners=false end end })
-ESPSec:AddToggle({ Name="Corner Brackets", Default=false, Callback=function(v) espCfg.corners=v; if v then espCfg.box=false end end })
-ESPSec:AddToggle({ Name="Fill",            Default=false, Callback=function(v) espCfg.fill=v end })
-ESPSec:AddToggle({ Name="Skeleton",        Default=false, Callback=function(v) espCfg.skeleton=v end })
-ESPSec:AddToggle({ Name="Name Tag",        Default=false, Callback=function(v) espCfg.name=v end })
-ESPSec:AddToggle({ Name="Weapon Tag",      Default=false, Callback=function(v) espCfg.weapon=v end })
-ESPSec:AddToggle({ Name="Distance Tag",    Default=false, Callback=function(v) espCfg.distance=v end })
-ESPSec:AddToggle({ Name="Health Bar",      Default=false, Callback=function(v) espCfg.healthBar=v end })
+    local s5=TabRage:AddSection({Name="Actions"})
+    s5:AddButton({Name="Reset Vectors",Callback=function()
+        for i,k in ipairs(yk) do rageCfg[k]=yd[i] end
+        for i=1,4 do rageCfg["v"..i.."x"]=0;rageCfg["v"..i.."z"]=0 end
+        rebuildVec()
+        Wind:Notify({Title="Ragebot",Content="Vectors reset!",Duration=2})
+    end})
 
-local ESPStyleSec = ESPTab:AddSection({ Name = "Style" })
-
-ESPStyleSec:AddDropdown({ Name="HP Bar Side", Default="Left", Options={"Left","Right","Bottom","Top"}, Callback=function(v) espCfg.healthBarStyle=v end })
-ESPStyleSec:AddToggle({ Name="HP Gradient",   Default=false, Callback=function(v) espCfg.healthBarGradient=v end })
-ESPStyleSec:AddSlider({ Name="Name Size",      Min=8,  Max=24, Default=13,  Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.nameSize=v end })
-ESPStyleSec:AddSlider({ Name="Weapon Size",    Min=8,  Max=20, Default=11,  Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.weaponSize=v end })
-ESPStyleSec:AddSlider({ Name="Dist Size",      Min=8,  Max=20, Default=11,  Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.distSize=v end })
-ESPStyleSec:AddSlider({ Name="Fill Alpha",     Min=10, Max=99, Default=75,  Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="%", Callback=function(v) espCfg.fillTrans=v/100 end })
-ESPStyleSec:AddSlider({ Name="Corner Length",  Min=10, Max=50, Default=25,  Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="%", Callback=function(v) espCfg.cornerLength=v/100 end })
-ESPStyleSec:AddSlider({ Name="HP Bar Width",   Min=1,  Max=10, Default=3,   Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.hpBarWidth=v end })
-ESPStyleSec:AddSlider({ Name="HP Bar Offset",  Min=1,  Max=20, Default=1,   Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.hpBarOffset=v end })
-
-local ESPFilterSec = ESPTab:AddSection({ Name = "Filters" })
-
-ESPFilterSec:AddToggle({ Name="Team Check",          Default=false,  Callback=function(v) espCfg.teamCheck=v end })
-ESPFilterSec:AddToggle({ Name="Visible Only",         Default=false,  Callback=function(v) espCfg.visibleOnly=v end })
-ESPFilterSec:AddToggle({ Name="Color by Visibility",  Default=false,  Callback=function(v) espCfg.colorByVisibility=v end })
-ESPFilterSec:AddSlider({ Name="Max Distance", Min=50,Max=5000,Default=1000, Color=Color3.fromRGB(255,60,60),Increment=50,ValueName="m",Callback=function(v) espCfg.maxDist=v end })
-
-local ESPColorSec = ESPTab:AddSection({ Name = "Colors" })
-
-ESPColorSec:AddColorpicker({ Name="Box Color",      Default=Color3.fromRGB(255,60,60),  Callback=function(v) espCfg.boxColor=v end })
-ESPColorSec:AddColorpicker({ Name="Enemy Color",    Default=Color3.fromRGB(255,60,60),  Callback=function(v) espCfg.boxEnemy=v end })
-ESPColorSec:AddColorpicker({ Name="Visible Color",  Default=Color3.fromRGB(60,220,60),  Callback=function(v) espCfg.boxVisible=v end })
-ESPColorSec:AddColorpicker({ Name="Fill Color",     Default=Color3.fromRGB(255,255,255),Callback=function(v) espCfg.fillColor=v end })
-ESPColorSec:AddColorpicker({ Name="Skeleton Color", Default=Color3.fromRGB(255,220,0),  Callback=function(v) espCfg.skelColor=v end })
-ESPColorSec:AddColorpicker({ Name="Name Color",     Default=Color3.fromRGB(255,255,255),Callback=function(v) espCfg.nameColor=v end })
-ESPColorSec:AddColorpicker({ Name="Weapon Color",   Default=Color3.fromRGB(160,160,255),Callback=function(v) espCfg.weaponColor=v end })
-ESPColorSec:AddColorpicker({ Name="Distance Color", Default=Color3.fromRGB(180,180,180),Callback=function(v) espCfg.distColor=v end })
+    local s6=TabRage:AddSection({Name="Wallbang"})
+    s6:AddToggle({Name="Enable Wallbang",Default=false,Callback=function(v)
+        wbCfg.on=v
+        if v then wbStart() else wbStop() end
+    end})
+    s6:AddDropdown({Name="Hit Part",Default="Head",Options={"Head","Body"},Callback=function(v) wbCfg.part=v end})
+    s6:AddButton({Name="Find Target",Callback=function()
+        local t=wbFind()
+        Wind:Notify({Title="Wallbang",Content=t and "Target: "..t.Name or "No target",Duration=3})
+    end})
+end
 
 -- =============================================
---   CAMERA TAB
+--   ESP UI
 -- =============================================
 
-local CamSec = CameraTab:AddSection({ Name = "Camera" })
+do
+    local s=TabESP:AddSection({Name="ESP"})
+    s:AddToggle({Name="Enable ESP",Default=false,Callback=function(v)
+        espCfg.on=v
+        if v then for _,p in ipairs(Players:GetPlayers()) do if p~=lp then mkESP(p) end end
+        else for _,o in pairs(espPool) do hideESP(o) end end
+    end})
+    s:AddToggle({Name="Box",Default=false,Callback=function(v) espCfg.box=v;if v then espCfg.corners=false end end})
+    s:AddToggle({Name="Corners",Default=false,Callback=function(v) espCfg.corners=v;if v then espCfg.box=false end end})
+    s:AddToggle({Name="Fill",Default=false,Callback=function(v) espCfg.fill=v end})
+    s:AddToggle({Name="Skeleton",Default=false,Callback=function(v) espCfg.skel=v end})
+    s:AddToggle({Name="Name",Default=false,Callback=function(v) espCfg.name=v end})
+    s:AddToggle({Name="Weapon",Default=false,Callback=function(v) espCfg.weapon=v end})
+    s:AddToggle({Name="Distance",Default=false,Callback=function(v) espCfg.dist=v end})
+    s:AddToggle({Name="Health Bar",Default=false,Callback=function(v) espCfg.hp=v end})
 
-CamSec:AddToggle({ Name="Enable FOV Changer",  Default=false, Callback=function(v) camCfg.fovEnabled=v end })
-CamSec:AddSlider({ Name="FOV Value",            Min=30,Max=120,Default=80, Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="°", Callback=function(v) camCfg.fovValue=v end })
-CamSec:AddToggle({ Name="No Camera Shake",     Default=false, Callback=function(v) camCfg.noShake=v end })
-CamSec:AddToggle({ Name="No Weapon Sway",      Default=false, Callback=function(v) camCfg.noSway=v end })
-CamSec:AddToggle({ Name="No Camera Bobbing",   Default=false, Callback=function(v) camCfg.noBobbing=v end })
-CamSec:AddToggle({ Name="No Jump Effect",      Default=false, Callback=function(v) camCfg.noJumpEffect=v end })
-CamSec:AddToggle({ Name="No Slide Tilt",       Default=false, Callback=function(v) camCfg.noSlideTilt=v end })
-CamSec:AddToggle({ Name="Force Crosshair",     Default=false, Callback=function(v) camCfg.forceCrosshair=v end })
+    local s2=TabESP:AddSection({Name="Style"})
+    s2:AddDropdown({Name="HP Bar Side",Default="Left",Options={"Left","Right","Bottom","Top"},Callback=function(v) espCfg.hpStyle=v end})
+    s2:AddToggle({Name="HP Gradient",Default=false,Callback=function(v) espCfg.hpGrad=v end})
+    s2:AddSlider({Name="Name Size",Min=8,Max=24,Default=13,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.nameSize=v end})
+    s2:AddSlider({Name="Weapon Size",Min=8,Max=20,Default=11,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.weapSize=v end})
+    s2:AddSlider({Name="Dist Size",Min=8,Max=20,Default=11,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.distSize=v end})
+    s2:AddSlider({Name="Fill Alpha",Min=10,Max=99,Default=75,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="%",Callback=function(v) espCfg.fillAlpha=v/100 end})
+    s2:AddSlider({Name="Corner Length",Min=10,Max=50,Default=25,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="%",Callback=function(v) espCfg.cornerLen=v/100 end})
+    s2:AddSlider({Name="HP Width",Min=1,Max=10,Default=3,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.hpW=v end})
+    s2:AddSlider({Name="HP Offset",Min=1,Max=20,Default=1,Color=Color3.fromRGB(255,60,60),Increment=1,ValueName="px",Callback=function(v) espCfg.hpOff=v end})
 
-local SensSec = CameraTab:AddSection({ Name = "Sensitivity" })
+    local s3=TabESP:AddSection({Name="Filters"})
+    s3:AddToggle({Name="Team Check",Default=false,Callback=function(v) espCfg.teamCheck=v end})
+    s3:AddToggle({Name="Visible Only",Default=false,Callback=function(v) espCfg.visOnly=v end})
+    s3:AddToggle({Name="Color by Visibility",Default=false,Callback=function(v) espCfg.colorVis=v end})
+    s3:AddSlider({Name="Max Distance",Min=50,Max=5000,Default=1000,Color=Color3.fromRGB(255,60,60),Increment=50,ValueName="m",Callback=function(v) espCfg.maxDist=v end})
 
-SensSec:AddToggle({ Name="Override Sensitivity", Default=false, Callback=function(v) camCfg.sensOverride=v end })
-SensSec:AddSlider({ Name="Sensitivity",   Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensValue=v/100 end })
-SensSec:AddSlider({ Name="ADS Sens",      Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensADS=v/100 end })
-SensSec:AddSlider({ Name="Scoped Sens",   Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensScoped=v/100 end })
-SensSec:AddSlider({ Name="Sens X",        Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensX=v/100 end })
-SensSec:AddSlider({ Name="Sens Y",        Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensY=v/100 end })
-
-local VMSec = CameraTab:AddSection({ Name = "Viewmodel" })
-
-VMSec:AddToggle({ Name="Custom Viewmodel", Default=false, Callback=function(v) camCfg.viewmodelEnabled=v end })
-VMSec:AddSlider({ Name="X Offset", Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmX=v*0.1 end })
-VMSec:AddSlider({ Name="Y Offset", Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmY=v*0.1 end })
-VMSec:AddSlider({ Name="Z Offset", Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmZ=v*0.1 end })
+    local s4=TabESP:AddSection({Name="Colors"})
+    s4:AddColorpicker({Name="Box",Default=Color3.fromRGB(255,60,60),Callback=function(v) espCfg.boxCol=v end})
+    s4:AddColorpicker({Name="Enemy",Default=Color3.fromRGB(255,60,60),Callback=function(v) espCfg.enemyCol=v end})
+    s4:AddColorpicker({Name="Visible",Default=Color3.fromRGB(60,220,60),Callback=function(v) espCfg.visCol=v end})
+    s4:AddColorpicker({Name="Fill",Default=Color3.fromRGB(255,255,255),Callback=function(v) espCfg.fillCol=v end})
+    s4:AddColorpicker({Name="Skeleton",Default=Color3.fromRGB(255,220,0),Callback=function(v) espCfg.skelCol=v end})
+    s4:AddColorpicker({Name="Name",Default=Color3.fromRGB(255,255,255),Callback=function(v) espCfg.nameCol=v end})
+    s4:AddColorpicker({Name="Weapon",Default=Color3.fromRGB(160,160,255),Callback=function(v) espCfg.weapCol=v end})
+    s4:AddColorpicker({Name="Distance",Default=Color3.fromRGB(180,180,180),Callback=function(v) espCfg.distCol=v end})
+end
 
 -- =============================================
---   SKINS TAB
+--   CAMERA UI
 -- =============================================
 
-local weaponList = buildWeaponList()
+do
+    local s=TabCamera:AddSection({Name="Camera"})
+    s:AddToggle({Name="FOV Changer",Default=false,Callback=function(v) camCfg.fovOn=v end})
+    s:AddSlider({Name="FOV Value",Min=30,Max=120,Default=80,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="°",Callback=function(v) camCfg.fovVal=v end})
+    s:AddToggle({Name="No Shake",Default=false,Callback=function(v) camCfg.noShake=v end})
+    s:AddToggle({Name="No Sway",Default=false,Callback=function(v) camCfg.noSway=v end})
+    s:AddToggle({Name="No Bobbing",Default=false,Callback=function(v) camCfg.noBob=v end})
+    s:AddToggle({Name="No Jump Effect",Default=false,Callback=function(v) camCfg.noJump=v end})
+    s:AddToggle({Name="No Slide Tilt",Default=false,Callback=function(v) camCfg.noTilt=v end})
+    s:AddToggle({Name="Force Crosshair",Default=false,Callback=function(v) camCfg.forceCross=v end})
 
-local SkinSec = SkinsTab:AddSection({ Name = "Skin Unlocker" })
+    local s2=TabCamera:AddSection({Name="Sensitivity"})
+    s2:AddToggle({Name="Override Sensitivity",Default=false,Callback=function(v) camCfg.sensOn=v end})
+    s2:AddSlider({Name="Sensitivity",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sens=v/100 end})
+    s2:AddSlider({Name="ADS Sens",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensADS=v/100 end})
+    s2:AddSlider({Name="Scoped Sens",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensScope=v/100 end})
+    s2:AddSlider({Name="Sens X",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensX=v/100 end})
+    s2:AddSlider({Name="Sens Y",Min=1,Max=500,Default=100,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="%",Callback=function(v) camCfg.sensY=v/100 end})
 
-SkinSec:AddToggle({
-    Name="Enable Skin Unlocker", Default=false,
-    Callback=function(v)
-        skinCfg.enabled=v
-        if v then installSkinHooks(); if skinCfg.autoLoad then loadSkinConfig() end end
+    local s3=TabCamera:AddSection({Name="Viewmodel"})
+    s3:AddToggle({Name="Custom Viewmodel",Default=false,Callback=function(v) camCfg.vmOn=v end})
+    s3:AddSlider({Name="X Offset",Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmX=v*0.1 end})
+    s3:AddSlider({Name="Y Offset",Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmY=v*0.1 end})
+    s3:AddSlider({Name="Z Offset",Min=-50,Max=50,Default=0,Color=Color3.fromRGB(100,200,255),Increment=1,ValueName="x0.1",Callback=function(v) camCfg.vmZ=v*0.1 end})
+end
+
+-- =============================================
+--   SKINS UI
+-- =============================================
+
+do
+    local wl = {}
+    for _,t in ipairs({PRIMARY_WEAPONS,SECONDARY_WEAPONS,MELEE_WEAPONS,UTILITY_WEAPONS}) do
+        for _,n in ipairs(t) do table.insert(wl,n) end
     end
-})
-SkinSec:AddToggle({ Name="Auto-Load on Execute", Default=true, Callback=function(v) skinCfg.autoLoad=v end })
+    table.sort(wl)
 
-local SkinPickSec = SkinsTab:AddSection({ Name = "Equip Cosmetics" })
+    local s=TabSkins:AddSection({Name="Skin Unlocker"})
+    s:AddToggle({Name="Enable",Default=false,Callback=function(v)
+        skinCfg.on=v
+        if v then installSkinHook(); if skinCfg.autoLoad then loadSkins() end end
+    end})
+    s:AddToggle({Name="Auto-Load",Default=true,Callback=function(v) skinCfg.autoLoad=v end})
 
-SkinPickSec:AddDropdown({ Name="Weapon",   Default=weaponList[1], Options=weaponList, Callback=function(v) skinCfg.selectedWeapon=v end })
-SkinPickSec:AddDropdown({ Name="Skin",     Default="None",        Options={"None"},   Callback=function(v) skinCfg.selectedSkin=v end })
-SkinPickSec:AddDropdown({ Name="Wrap",     Default="None",        Options={"None"},   Callback=function(v) skinCfg.selectedWrap=v end })
-SkinPickSec:AddDropdown({ Name="Charm",    Default="None",        Options={"None"},   Callback=function(v) skinCfg.selectedCharm=v end })
-SkinPickSec:AddDropdown({ Name="Finisher", Default="None",        Options={"None"},   Callback=function(v) skinCfg.selectedFinisher=v end })
+    local s2=TabSkins:AddSection({Name="Equip"})
+    s2:AddDropdown({Name="Weapon",Default=wl[1],Options=wl,Callback=function(v) skinCfg.weapon=v end})
+    s2:AddDropdown({Name="Skin",Default="None",Options={"None"},Callback=function(v) skinCfg.skin=v end})
+    s2:AddDropdown({Name="Wrap",Default="None",Options={"None"},Callback=function(v) skinCfg.wrap=v end})
+    s2:AddDropdown({Name="Charm",Default="None",Options={"None"},Callback=function(v) skinCfg.charm=v end})
+    s2:AddDropdown({Name="Finisher",Default="None",Options={"None"},Callback=function(v) skinCfg.finish=v end})
+    s2:AddButton({Name="Equip Selected",Callback=function()
+        if not skinCfg.on then Wind:Notify({Title="Skins",Content="Enable first!",Duration=2});return end
+        if not skinCfg.weapon then Wind:Notify({Title="Skins",Content="Pick a weapon!",Duration=2});return end
+        local c=0
+        if skinCfg.skin~="None" then equipSkin(skinCfg.weapon,"Skin",skinCfg.skin);c=c+1 end
+        if skinCfg.wrap~="None" then equipSkin(skinCfg.weapon,"Wrap",skinCfg.wrap);c=c+1 end
+        if skinCfg.charm~="None" then equipSkin(skinCfg.weapon,"Charm",skinCfg.charm);c=c+1 end
+        if skinCfg.finish~="None" then equipSkin(skinCfg.weapon,"Finisher",skinCfg.finish);c=c+1 end
+        Wind:Notify({Title="Skins",Content=c>0 and "Equipped "..c.." item(s)" or "Nothing selected",Duration=2})
+    end})
+    s2:AddButton({Name="Unequip All on Weapon",Callback=function()
+        if not skinCfg.weapon then return end
+        equipped[skinCfg.weapon]=nil; saveSkins()
+        Wind:Notify({Title="Skins",Content="Unequipped!",Duration=2})
+    end})
 
-SkinPickSec:AddButton({ Name="Equip Selected", Callback=function()
-    if not skinCfg.enabled then Wind:Notify({Title="Skins",Content="Enable Skin Unlocker first!",Duration=3}); return end
-    if not skinCfg.selectedWeapon then Wind:Notify({Title="Skins",Content="Select a weapon!",Duration=3}); return end
-    local c=0
-    if skinCfg.selectedSkin and skinCfg.selectedSkin~="None" then equipCosmetic(skinCfg.selectedWeapon,"Skin",skinCfg.selectedSkin); c=c+1 end
-    if skinCfg.selectedWrap and skinCfg.selectedWrap~="None" then equipCosmetic(skinCfg.selectedWeapon,"Wrap",skinCfg.selectedWrap); c=c+1 end
-    if skinCfg.selectedCharm and skinCfg.selectedCharm~="None" then equipCosmetic(skinCfg.selectedWeapon,"Charm",skinCfg.selectedCharm); c=c+1 end
-    if skinCfg.selectedFinisher and skinCfg.selectedFinisher~="None" then equipCosmetic(skinCfg.selectedWeapon,"Finisher",skinCfg.selectedFinisher); c=c+1 end
-    Wind:Notify({Title="Skins",Content=c>0 and ("Equipped "..c.." on "..skinCfg.selectedWeapon) or "Nothing selected",Duration=3})
-end })
+    local s3=TabSkins:AddSection({Name="Config"})
+    s3:AddButton({Name="Save",Callback=function() saveSkins();Wind:Notify({Title="Skins",Content="Saved!",Duration=2}) end})
+    s3:AddButton({Name="Load",Callback=function() loadSkins();Wind:Notify({Title="Skins",Content="Loaded!",Duration=2}) end})
+    s3:AddButton({Name="Reset All",Callback=function() equipped={};saveSkins();Wind:Notify({Title="Skins",Content="Reset!",Duration=2}) end})
 
-SkinPickSec:AddButton({ Name="Unequip All on Weapon", Callback=function()
-    if not skinCfg.selectedWeapon then Wind:Notify({Title="Skins",Content="Select weapon!",Duration=3}); return end
-    equipped[skinCfg.selectedWeapon]=nil
-    pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end)
-    saveSkinConfig()
-    Wind:Notify({Title="Skins",Content="Unequipped all on "..skinCfg.selectedWeapon,Duration=3})
-end })
-
-local SkinCfgSec = SkinsTab:AddSection({ Name = "Config" })
-
-SkinCfgSec:AddButton({ Name="Save Config", Callback=function() saveSkinConfig(); Wind:Notify({Title="Skins",Content="Saved!",Duration=2}) end })
-SkinCfgSec:AddButton({ Name="Load Config", Callback=function()
-    loadSkinConfig()
-    pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end)
-    Wind:Notify({Title="Skins",Content="Loaded!",Duration=2})
-end })
-SkinCfgSec:AddButton({ Name="Reset All", Callback=function()
-    equipped={}
-    pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end)
-    saveSkinConfig()
-    Wind:Notify({Title="Skins",Content="Reset!",Duration=2})
-end })
-
-task.spawn(function()
-    task.wait(3)
-    if readfile and isfile and isfile(skinConfigPath) then
-        installSkinHooks(); loadSkinConfig(); task.wait(1)
-        pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end)
-        local n=0; for _ in pairs(equipped) do n=n+1 end
-        Wind:Notify({Title="Skins",Content="Auto-loaded ("..n.." weapons)",Duration=3})
-    end
-end)
-
--- =============================================
---   MISC TAB
--- =============================================
-
-local LoadoutSec = MiscTab:AddSection({ Name = "Auto Loadout" })
-
-LoadoutSec:AddDropdown({ Name="Primary",   Default=PRIMARY_WEAPONS[1],   Options=PRIMARY_WEAPONS,   Callback=function(v) loadoutCfg.primary=v end })
-LoadoutSec:AddDropdown({ Name="Secondary", Default=SECONDARY_WEAPONS[1], Options=SECONDARY_WEAPONS, Callback=function(v) loadoutCfg.secondary=v end })
-LoadoutSec:AddDropdown({ Name="Melee",     Default=MELEE_WEAPONS[1],     Options=MELEE_WEAPONS,     Callback=function(v) loadoutCfg.melee=v end })
-LoadoutSec:AddDropdown({ Name="Utility",   Default=UTILITY_WEAPONS[1],   Options=UTILITY_WEAPONS,   Callback=function(v) loadoutCfg.utility=v end })
-LoadoutSec:AddButton({ Name="Apply Loadout", Callback=function()
-    pcall(function()
-        if PickWeaponsRemote then
-            PickWeaponsRemote:FireServer({loadoutCfg.primary,loadoutCfg.secondary,loadoutCfg.melee,loadoutCfg.utility})
-            Wind:Notify({Title="Misc",Content="Loadout applied!",Duration=2})
+    -- auto load skins in background
+    task.spawn(function()
+        task.wait(3)
+        if readfile and isfile and isfile(skinPath) then
+            installSkinHook(); loadSkins()
+            local n=0; for _ in pairs(equipped) do n=n+1 end
+            Wind:Notify({Title="Skins",Content="Auto-loaded ("..n.." weapons)",Duration=3})
         end
     end)
-end })
-LoadoutSec:AddToggle({ Name="Auto Apply on Spawn", Default=false, Callback=function(v) miscCfg.autoApplyLoadout=v end })
+end
 
-lp.CharacterAdded:Connect(function()
-    if miscCfg.autoApplyLoadout then
-        task.wait(1)
+-- =============================================
+--   MISC UI
+-- =============================================
+
+do
+    local s=TabMisc:AddSection({Name="Loadout"})
+    s:AddDropdown({Name="Primary",Default=PRIMARY_WEAPONS[1],Options=PRIMARY_WEAPONS,Callback=function(v) loadoutCfg.prim=v end})
+    s:AddDropdown({Name="Secondary",Default=SECONDARY_WEAPONS[1],Options=SECONDARY_WEAPONS,Callback=function(v) loadoutCfg.sec=v end})
+    s:AddDropdown({Name="Melee",Default=MELEE_WEAPONS[1],Options=MELEE_WEAPONS,Callback=function(v) loadoutCfg.melee=v end})
+    s:AddDropdown({Name="Utility",Default=UTILITY_WEAPONS[1],Options=UTILITY_WEAPONS,Callback=function(v) loadoutCfg.util=v end})
+    s:AddButton({Name="Apply Loadout",Callback=function()
         pcall(function()
-            if PickWeaponsRemote then
-                PickWeaponsRemote:FireServer({loadoutCfg.primary,loadoutCfg.secondary,loadoutCfg.melee,loadoutCfg.utility})
+            if Rem.PickWeapons then
+                Rem.PickWeapons:FireServer({loadoutCfg.prim,loadoutCfg.sec,loadoutCfg.melee,loadoutCfg.util})
+                Wind:Notify({Title="Misc",Content="Loadout applied!",Duration=2})
             end
         end)
-    end
-end)
+    end})
+    s:AddToggle({Name="Auto Apply on Spawn",Default=false,Callback=function(v) miscCfg.autoLoad=v end})
 
-local QueueSec = MiscTab:AddSection({ Name = "Queue" })
-
-QueueSec:AddDropdown({ Name="Queue Mode", Default=QUEUE_MODES[1], Options=QUEUE_MODES, Callback=function(v) miscCfg.queueMode=v end })
-QueueSec:AddButton({ Name="Join Queue", Callback=function()
-    pcall(function()
-        if QueueRemote then
-            QueueRemote:InvokeServer(miscCfg.queueMode)
-            Wind:Notify({Title="Misc",Content="Joined "..miscCfg.queueMode.." queue!",Duration=2})
+    lp.CharacterAdded:Connect(function()
+        if miscCfg.autoLoad then
+            task.wait(1)
+            pcall(function()
+                if Rem.PickWeapons then
+                    Rem.PickWeapons:FireServer({loadoutCfg.prim,loadoutCfg.sec,loadoutCfg.melee,loadoutCfg.util})
+                end
+            end)
         end
     end)
-end })
 
-local VoteSec = MiscTab:AddSection({ Name = "Map Vote" })
-
-VoteSec:AddDropdown({ Name="Select Map", Default=MAPS[1], Options=MAPS, Callback=function(v) miscCfg.voteMap=v end })
-VoteSec:AddButton({ Name="Vote for Map", Callback=function()
-    pcall(function()
-        if VoteRemote then
-            VoteRemote:FireServer(miscCfg.voteMap)
-            Wind:Notify({Title="Misc",Content="Voted for "..miscCfg.voteMap,Duration=2})
-        end
-    end)
-end })
-VoteSec:AddToggle({ Name="Auto Vote", Default=false, Callback=function(v)
-    autoVoteActive=false; task.wait(0.1)
-    if v then
-        autoVoteActive=true
-        task.spawn(function()
-            while autoVoteActive do
-                pcall(function() if VoteRemote then VoteRemote:FireServer(miscCfg.voteMap) end end)
-                local e=0; while e<2 and autoVoteActive do task.wait(0.1); e=e+0.1 end
-            end
+    local s2=TabMisc:AddSection({Name="Queue"})
+    s2:AddDropdown({Name="Mode",Default=QUEUE_MODES[1],Options=QUEUE_MODES,Callback=function(v) miscCfg.queueMode=v end})
+    s2:AddButton({Name="Join Queue",Callback=function()
+        pcall(function()
+            if Rem.Queue then Rem.Queue:InvokeServer(miscCfg.queueMode);Wind:Notify({Title="Misc",Content="Joined!",Duration=2}) end
         end)
-    end
-end })
+    end})
+
+    local s3=TabMisc:AddSection({Name="Map Vote"})
+    s3:AddDropdown({Name="Map",Default=MAPS[1],Options=MAPS,Callback=function(v) miscCfg.voteMap=v end})
+    s3:AddButton({Name="Vote",Callback=function()
+        pcall(function()
+            if Rem.Vote then Rem.Vote:FireServer(miscCfg.voteMap);Wind:Notify({Title="Misc",Content="Voted!",Duration=2}) end
+        end)
+    end})
+    s3:AddToggle({Name="Auto Vote",Default=false,Callback=function(v)
+        autoVoteActive=false; task.wait(0.1)
+        if v then
+            autoVoteActive=true
+            task.spawn(function()
+                while autoVoteActive do
+                    pcall(function() if Rem.Vote then Rem.Vote:FireServer(miscCfg.voteMap) end end)
+                    local e=0; while e<2 and autoVoteActive do task.wait(0.1);e=e+0.1 end
+                end
+            end)
+        end
+    end})
+end
 
 -- =============================================
---   SKYBOX TAB
+--   SKYBOX UI
 -- =============================================
 
-local SkySec = SkyboxTab:AddSection({ Name = "Skybox Changer" })
-
-SkySec:AddToggle({ Name="Enable Skybox", Default=false,
-    Callback=function(v) skyboxCfg.enabled=v; if v then applySkybox(skyboxCfg.selected) else restoreSky() end end })
-SkySec:AddDropdown({ Name="Select Skybox", Default="Default", Options=SKYBOX_LIST,
-    Callback=function(v) skyboxCfg.selected=v; if skyboxCfg.enabled then applySkybox(v) end end })
-SkySec:AddButton({ Name="Apply Now",        Callback=function()
-    if not skyboxCfg.enabled then Wind:Notify({Title="Skybox",Content="Enable first!",Duration=2}); return end
-    applySkybox(skyboxCfg.selected); Wind:Notify({Title="Skybox",Content="Applied!",Duration=2})
-end })
-SkySec:AddButton({ Name="Restore Original", Callback=function() restoreSky(); Wind:Notify({Title="Skybox",Content="Restored!",Duration=2}) end })
+do
+    local s=TabSkybox:AddSection({Name="Skybox"})
+    s:AddToggle({Name="Enable",Default=false,Callback=function(v)
+        skyCfg.on=v
+        if v then applySky(skyCfg.selected) else restoreSky() end
+    end})
+    s:AddDropdown({Name="Skybox",Default="Default",Options=SKYBOX_LIST,Callback=function(v)
+        skyCfg.selected=v; if skyCfg.on then applySky(v) end
+    end})
+    s:AddButton({Name="Apply",Callback=function()
+        if skyCfg.on then applySky(skyCfg.selected) end
+    end})
+    s:AddButton({Name="Restore",Callback=function() restoreSky() end})
+end
 
 -- =============================================
 --   UI TAB
 -- =============================================
 
-local UISec = UITab:AddSection({ Name = "Script" })
-
-UISec:AddButton({ Name="Unload Script", Callback=function()
-    AB.on=false; rageCfg.enabled=false; WB.enabled=false
-    espCfg.enabled=false; autoVoteActive=false
-    stopRagebot(); stopHitSound(); unhookSilent(); wbState:Shutdown()
-    for p in pairs(espPool) do destroyESPObjects(p) end
-    pcall(function() fovCircle:Remove(); fovHalf:Remove(); silentCircle:Remove(); abCirc:Remove() end)
-    restoreSky()
-    pcall(function() RunService:UnbindFromRenderStep("__wbRestore") end)
-    Wind:Destroy()
-end })
+do
+    local s=TabUI:AddSection({Name="Script"})
+    s:AddButton({Name="Unload",Callback=function()
+        AB.on=false; rageCfg.on=false; wbCfg.on=false
+        espCfg.on=false; autoVoteActive=false
+        stopRage(); stopHS(); unhookSil(); wbStop()
+        for p in pairs(espPool) do rmESP(p) end
+        pcall(function() fovCirc:Remove();fovHalf:Remove();silCirc:Remove();abCirc:Remove() end)
+        restoreSky()
+        pcall(function() RunService:UnbindFromRenderStep("__wbR") end)
+        Wind:Destroy()
+    end})
+end
 
 -- =============================================
---   MAIN LOOP — RenderStepped
+--   MAIN LOOP
 -- =============================================
-
-local frameCount,wTimer = 0,0
 
 RunService.RenderStepped:Connect(function(dt)
     cam = ws.CurrentCamera
 
-    -- FPS counter
-    frameCount = frameCount + 1
-    wTimer = wTimer + dt
-
     -- ESP
-    pcall(renderESP)
+    pcall(doESP)
 
-    -- Camera effects
+    -- Camera
     pcall(function()
-        if not CameraController then return end
-        if camCfg.fovEnabled then CameraController._base_fov=camCfg.fovValue end
-        if camCfg.noShake then CameraController._shake_enabled=false; CameraController.ShakeCFrame=CFrame.identity end
-        if camCfg.noSway then
-            CameraController._sway_spring.Value=Vector2.zero
-            CameraController._sway_spring.Target=Vector2.zero
+        local CC=Mods.CameraController; if not CC then return end
+        if camCfg.fovOn then CC._base_fov=camCfg.fovVal end
+        if camCfg.noShake then CC._shake_enabled=false; CC.ShakeCFrame=CFrame.identity end
+        if camCfg.noSway then CC._sway_spring.Value=Vector2.zero; CC._sway_spring.Target=Vector2.zero end
+        if camCfg.noBob then
+            CC._bobbing_speed_spring.Target=0; CC._bobbing_speed_spring.Value=0
+            CC._bobbing_value_spring.Target=0; CC._bobbing_value_spring.Value=0
         end
-        if camCfg.noBobbing then
-            CameraController._bobbing_speed_spring.Target=0
-            CameraController._bobbing_speed_spring.Value=0
-            CameraController._bobbing_value_spring.Target=0
-            CameraController._bobbing_value_spring.Value=0
+        if camCfg.noJump then CC._jump_spring.Target=0; CC._jump_spring.Value=0 end
+        if camCfg.noTilt then CC._sliding_spring.Target=0; CC._sliding_spring.Value=0 end
+        if camCfg.forceCross then CC._crosshair_disabled=false end
+        if camCfg.sensOn then
+            CC._camera_sensitivity=camCfg.sens
+            CC._camera_sensitivity_ads_multiplier=camCfg.sensADS
+            CC._camera_sensitivity_ads_multiplier_scoped=camCfg.sensScope
+            CC._camera_sensitivity_x=camCfg.sensX
+            CC._camera_sensitivity_y=camCfg.sensY
         end
-        if camCfg.noJumpEffect then
-            CameraController._jump_spring.Target=0
-            CameraController._jump_spring.Value=0
-        end
-        if camCfg.noSlideTilt then
-            CameraController._sliding_spring.Target=0
-            CameraController._sliding_spring.Value=0
-        end
-        if camCfg.forceCrosshair then CameraController._crosshair_disabled=false end
-        if camCfg.sensOverride then
-            CameraController._camera_sensitivity=camCfg.sensValue
-            CameraController._camera_sensitivity_ads_multiplier=camCfg.sensADS
-            CameraController._camera_sensitivity_ads_multiplier_scoped=camCfg.sensScoped
-            CameraController._camera_sensitivity_x=camCfg.sensX
-            CameraController._camera_sensitivity_y=camCfg.sensY
-        end
-        if camCfg.viewmodelEnabled then
-            CameraController.ViewModelOffsetCFrame=CFrame.new(camCfg.vmX,camCfg.vmY,camCfg.vmZ)
-        end
+        if camCfg.vmOn then CC.ViewModelOffsetCFrame=CFrame.new(camCfg.vmX,camCfg.vmY,camCfg.vmZ) end
     end)
 
     -- Aimbot
-    if AB.on and CameraController then
+    if AB.on then
+        local CC=Mods.CameraController; if not CC then return end
         if abDoReact then
             abReactT=abReactT-dt
             if abReactT<=0 then abDoReact=false end
         end
         if not abDoReact then
-            if abTgt and not abTgtValid(abTgt) then
-                abTgt=nil; abLockT=0; abPrevPos=nil
-                abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
+            if abTgt and not abValid(abTgt) then
+                abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
             end
             if not abTgt then
                 abTgt=abFind()
                 if abTgt then
-                    abLockT=0; abDoReact=true; abReactT=AB.reactTime/1000
-                    abPrevPos=nil; abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
+                    abLockT=0;abDoReact=true;abReactT=AB.reactTime/1000
+                    abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
                 end
             end
             if abTgt then
                 abLockT=abLockT+dt
                 if abLockT>AB.maxLock then
-                    abTgt=nil; abLockT=0; abPrevPos=nil
-                    abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
+                    abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
                 elseif inFov(abTgt,abEffFov()) then
                     pcall(function()
-                        local aimPos=getPredictedPos(abTgt)
-                        local du=(aimPos-cam.CFrame.Position).Unit
-                        local tRot=Vector2.new(
-                            math.asin(math.clamp(du.Y,-1,1)),
-                            math.atan2(-du.X,-du.Z)
-                        )
-                        local cur=CameraController.Rotation
-                        local sp,_=cam:WorldToViewportPoint(aimPos)
+                        local ap=getPred(abTgt)
+                        local du=(ap-cam.CFrame.Position).Unit
+                        local tR=Vector2.new(math.asin(math.clamp(du.Y,-1,1)),math.atan2(-du.X,-du.Z))
+                        local cur=CC.Rotation
+                        local sp=cam:WorldToViewportPoint(ap)
                         local sd=(Vector2.new(sp.X,sp.Y)-getScr()).Magnitude
-                        local newRot=applySmartLock(tRot,cur,dt,sd,abEffFov())
-                        CameraController:ApplyRotationDelta(Vector2.new(
-                            newRot.X-cur.X, angDiff(cur.Y,newRot.Y)
-                        ))
+                        local nr=smartLock(tR,cur,dt,sd,abEffFov())
+                        CC:ApplyRotationDelta(Vector2.new(nr.X-cur.X,angDiff(cur.Y,nr.Y)))
                     end)
                 else
-                    abTgt=nil; abLockT=0; abPrevPos=nil
-                    abCurveStart=nil; abCurveEnd=nil; abCurveProgress=0
+                    abTgt=nil;abLockT=0;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0
                 end
             end
         end
     end
 
     -- FOV circle
-    if fovCfg.visible then
-        local center = fovCfg.useCenter and getScr() or getMousePos()
-        fovCircle.Visible=true; fovCircle.Color=fovCfg.color; fovCircle.Position=center
-        local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        local orig = myRoot and myRoot.Position or cam.CFrame.Position
-        fovCircle.Radius = abTgt and (isVis(orig,abTgt) and fovCfg.onTarget or fovCfg.onBarrier) or fovCfg.fovSize
+    if fovCfg.show then
+        local center=fovCfg.useCenter and getScr() or getMouse()
+        fovCirc.Visible=true;fovCirc.Color=fovCfg.color;fovCirc.Position=center
+        local mr=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local orig=mr and mr.Position or cam.CFrame.Position
+        fovCirc.Radius=abTgt and (isVis(orig,abTgt) and fovCfg.onTarget or fovCfg.onBarrier) or fovCfg.size
         if fovCfg.half then
-            fovHalf.Visible=true; fovHalf.Color=fovCfg.color
-            fovHalf.Position=center; fovHalf.Radius=fovCircle.Radius*0.5
+            fovHalf.Visible=true;fovHalf.Color=fovCfg.color;fovHalf.Position=center;fovHalf.Radius=fovCirc.Radius*0.5
         else fovHalf.Visible=false end
-        abCirc.Position=center; abCirc.Radius=abEffFov(); abCirc.Visible=AB.on and AB.drawFov
-    else
-        fovCircle.Visible=false; fovHalf.Visible=false; abCirc.Visible=false
-    end
+        abCirc.Position=center;abCirc.Radius=abEffFov();abCirc.Visible=AB.on
+    else fovCirc.Visible=false;fovHalf.Visible=false;abCirc.Visible=false end
 
-    -- Silent FOV circle
-    if silentCfg.enabled and silentCfg.circleVisible then
-        local center = silentCfg.useCenter and getScr() or getMousePos()
-        silentCircle.Visible=true; silentCircle.Radius=silentCfg.fovSize
-        silentCircle.Thickness=silentCfg.circleThick; silentCircle.Position=center
-        local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        local orig = myRoot and myRoot.Position or cam.CFrame.Position
-        silentCircle.Color = getSilentTarget(orig) and silentCfg.targetColor or silentCfg.circleColor
-    else
-        silentCircle.Visible=false
-    end
+    -- Silent circle
+    if silCfg.on and silCfg.showCircle then
+        local center=silCfg.useCenter and getScr() or getMouse()
+        silCirc.Visible=true;silCirc.Radius=silCfg.fov
+        silCirc.Thickness=silCfg.circleThick;silCirc.Position=center
+        local mr=lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local orig=mr and mr.Position or cam.CFrame.Position
+        silCirc.Color=silGetTarget(orig) and silCfg.targetColor or silCfg.circleColor
+    else silCirc.Visible=false end
 end)
 
-Wind:Notify({ Title="Rivals v2.4", Content="Loaded! RightShift to toggle.", Duration=5 })
-print("[Rivals v2.4] WindUI loaded successfully")
+Wind:Notify({Title="Rivals v2.4",Content="Loaded! No freeze.",Duration=4})
+print("[Rivals v2.4] Loaded")
 
-end) -- task.spawn
+end)
