@@ -13,7 +13,7 @@ local lp                = Players.LocalPlayer
 local cam               = ws.CurrentCamera
 
 -- =============================================
---   LOAD WINDUI (Footagesus)
+--   LOAD WINDUI
 -- =============================================
 
 local WindUI
@@ -23,7 +23,7 @@ end)
 if not ok or not WindUI then warn("[Rivals] WindUI failed"); return end
 
 -- =============================================
---   ANTI-CHEAT (background)
+--   ANTI-CHEAT
 -- =============================================
 
 task.spawn(function()
@@ -132,7 +132,7 @@ local PMAP = {
 }
 
 -- =============================================
---   GAME MODULES (lazy load)
+--   GAME MODULES
 -- =============================================
 
 local Mods = {}
@@ -176,7 +176,7 @@ task.spawn(function()
 end)
 
 -- =============================================
---   REMOTES (lazy)
+--   REMOTES
 -- =============================================
 
 local Rem = {}
@@ -1004,116 +1004,101 @@ local function installSkinHook()
 end
 
 -- =============================================
---   BUILD WINDUI (Footagesus API)
+--   BUILD WINDUI
 -- =============================================
 
 local Window = WindUI:CreateWindow({
     Title = "Rivals",
     Icon = "swords",
-    Author = "v2.4",
+    Author = "Hub v2.4",
     Folder = "RivalsScript",
-    Size = UDim2.fromOffset(580, 450),
+    Size = UDim2.fromOffset(620, 480),
     Transparent = true,
     Theme = "Dark",
-    SideBarWidth = 160,
+    SideBarWidth = 170,
     HasOutline = true,
     KeySystem = nil,
 })
 
 WindUI:SetNotificationLower(true)
 
-local TabAimbot  = Window:Tab({ Title = "Aimbot",  Icon = "crosshair" })
-local TabSilent  = Window:Tab({ Title = "Silent",  Icon = "eye-off" })
-local TabRage    = Window:Tab({ Title = "Ragebot", Icon = "zap" })
-local TabESP     = Window:Tab({ Title = "ESP",     Icon = "scan" })
-local TabCamera  = Window:Tab({ Title = "Camera",  Icon = "video" })
-local TabSkins   = Window:Tab({ Title = "Skins",   Icon = "shirt" })
-local TabMisc    = Window:Tab({ Title = "Misc",    Icon = "settings" })
-local TabSkybox  = Window:Tab({ Title = "Skybox",  Icon = "cloud" })
-local TabUI      = Window:Tab({ Title = "UI",      Icon = "monitor" })
+-- =============================================
+--   TABS WITH ICONS
+-- =============================================
+
+local TabAimbot  = Window:Tab({ Title = "Aimbot",   Icon = "crosshair",   Desc = "Smart targeting system" })
+local TabSilent  = Window:Tab({ Title = "Silent",   Icon = "eye-off",     Desc = "Invisible aim hooks" })
+local TabRage    = Window:Tab({ Title = "Ragebot",  Icon = "zap",         Desc = "Aggressive shooting" })
+local TabESP     = Window:Tab({ Title = "ESP",      Icon = "scan-eye",    Desc = "Player visualization" })
+local TabCamera  = Window:Tab({ Title = "Camera",   Icon = "camera",      Desc = "Camera modifications" })
+local TabSkins   = Window:Tab({ Title = "Skins",    Icon = "shirt",       Desc = "Cosmetic unlocker" })
+local TabMisc    = Window:Tab({ Title = "Misc",     Icon = "wrench",      Desc = "Loadout and queue" })
+local TabSkybox  = Window:Tab({ Title = "Skybox",   Icon = "cloud-sun",   Desc = "Environment themes" })
+local TabSettings= Window:Tab({ Title = "Settings", Icon = "settings-2",  Desc = "UI customization" })
 
 -- =============================================
 --   AIMBOT UI
 -- =============================================
 
-TabAimbot:Section({ Title = "Aimbot" })
-
+TabAimbot:Section({ Title = "Main", TextSize = 18 })
 TabAimbot:Toggle({
     Title = "Enable Aimbot",
+    Desc = "Master toggle for the aimbot",
     Default = false,
     Callback = function(v)
         AB.on=v
         if not v then abTgt=nil;abLockT=0;abDoReact=false;abPrevPos=nil;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end
     end
 })
+TabAimbot:Dropdown({ Title = "Aim Part", Desc = "Body part to target", Values = PARTS, Value = "Head", Callback = function(v) AB.part=v end })
+TabAimbot:Dropdown({ Title = "Lock Mode", Desc = "Smoothing algorithm", Values = {"Soft","Magnet","Curve"}, Value = "Soft", Callback = function(v) AB.lockMode=v;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end })
 
-TabAimbot:Dropdown({ Title = "Aim Part", Values = PARTS, Value = "Head", Callback = function(v) AB.part=v end })
-TabAimbot:Dropdown({ Title = "Lock Mode", Values = {"Soft","Magnet","Curve"}, Value = "Soft", Callback = function(v) AB.lockMode=v;abCurveStart=nil;abCurveEnd=nil;abCurveProgress=0 end })
-TabAimbot:Toggle({ Title = "Team Check",    Default = false, Callback = function(v) AB.team=v end })
-TabAimbot:Toggle({ Title = "Visible Check", Default = false, Callback = function(v) AB.vis=v end })
-TabAimbot:Toggle({ Title = "Screen Center", Default = false, Callback = function(v) AB.useCenter=v end })
-TabAimbot:Toggle({ Title = "Dynamic FOV",   Default = false, Callback = function(v) AB.dynFov=v end })
+TabAimbot:Section({ Title = "Filters", TextSize = 16 })
+TabAimbot:Toggle({ Title = "Team Check", Desc = "Skip teammates", Default = false, Callback = function(v) AB.team=v end })
+TabAimbot:Toggle({ Title = "Visible Check", Desc = "Skip wallhid players", Default = false, Callback = function(v) AB.vis=v end })
+TabAimbot:Toggle({ Title = "Screen Center", Desc = "Use screen center vs mouse", Default = false, Callback = function(v) AB.useCenter=v end })
+TabAimbot:Toggle({ Title = "Dynamic FOV", Desc = "Scale FOV with camera FOV", Default = false, Callback = function(v) AB.dynFov=v end })
 
-TabAimbot:Section({ Title = "Smoothing" })
-
-TabAimbot:Slider({ Title = "Base Speed",    Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) AB.speed=v/100 end })
-TabAimbot:Slider({ Title = "Attack Speed",  Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) AB.speedAttack=v/100 end })
-TabAimbot:Slider({ Title = "FOV Scale %",   Value = {Min=0,Max=100,Default=50},  Step = 1, Callback = function(v) AB.speedScaleFov=v end })
-TabAimbot:Slider({ Title = "Curve Strength",Value = {Min=1,Max=400,Default=10},  Step = 1, Callback = function(v) AB.curvePct=v end })
-TabAimbot:Slider({ Title = "Max Lock Time", Value = {Min=1,Max=1000,Default=300},Step = 1, Callback = function(v) AB.maxLock=v/100 end })
+TabAimbot:Section({ Title = "Smoothing", TextSize = 16 })
+TabAimbot:Slider({ Title = "Base Speed", Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) AB.speed=v/100 end })
+TabAimbot:Slider({ Title = "Attack Speed", Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) AB.speedAttack=v/100 end })
+TabAimbot:Slider({ Title = "FOV Scale %", Value = {Min=0,Max=100,Default=50}, Step = 1, Callback = function(v) AB.speedScaleFov=v end })
+TabAimbot:Slider({ Title = "Curve Strength", Value = {Min=1,Max=400,Default=10}, Step = 1, Callback = function(v) AB.curvePct=v end })
+TabAimbot:Slider({ Title = "Max Lock Time", Value = {Min=1,Max=1000,Default=300}, Step = 1, Callback = function(v) AB.maxLock=v/100 end })
 TabAimbot:Slider({ Title = "Reaction (ms)", Value = {Min=0,Max=500,Default=100}, Step = 1, Callback = function(v) AB.reactTime=v end })
 
-TabAimbot:Section({ Title = "FOV Circle" })
-
+TabAimbot:Section({ Title = "FOV Circle", TextSize = 16 })
 TabAimbot:Toggle({ Title = "Show FOV Circle", Default = false, Callback = function(v) fovCfg.show=v end })
-TabAimbot:Toggle({ Title = "Half Circle",     Default = false, Callback = function(v) fovCfg.half=v end })
-TabAimbot:Toggle({ Title = "Circle Center",   Default = false, Callback = function(v) fovCfg.useCenter=v end })
-TabAimbot:Slider({ Title = "FOV Size",        Value = {Min=10,Max=500,Default=150}, Step = 1, Callback = function(v) fovCfg.size=v;AB.fov=v;fovCirc.Radius=v;abCirc.Radius=v end })
-TabAimbot:Slider({ Title = "On Target Radius",Value = {Min=10,Max=500,Default=60},  Step = 1, Callback = function(v) fovCfg.onTarget=v end })
-TabAimbot:Slider({ Title = "On Barrier Radius",Value = {Min=10,Max=500,Default=200},Step = 1, Callback = function(v) fovCfg.onBarrier=v end })
+TabAimbot:Toggle({ Title = "Half Circle", Default = false, Callback = function(v) fovCfg.half=v end })
+TabAimbot:Toggle({ Title = "Circle Center", Default = false, Callback = function(v) fovCfg.useCenter=v end })
+TabAimbot:Slider({ Title = "FOV Size", Value = {Min=10,Max=500,Default=150}, Step = 1, Callback = function(v) fovCfg.size=v;AB.fov=v;fovCirc.Radius=v;abCirc.Radius=v end })
+TabAimbot:Slider({ Title = "On Target Radius", Value = {Min=10,Max=500,Default=60}, Step = 1, Callback = function(v) fovCfg.onTarget=v end })
+TabAimbot:Slider({ Title = "On Barrier Radius", Value = {Min=10,Max=500,Default=200}, Step = 1, Callback = function(v) fovCfg.onBarrier=v end })
 TabAimbot:Colorpicker({ Title = "FOV Color", Default = Color3.fromRGB(255,255,255), Callback = function(v) fovCfg.color=v;fovCirc.Color=v;fovHalf.Color=v end })
 
 -- =============================================
---   SILENT AIM UI
+--   SILENT UI
 -- =============================================
 
-TabSilent:Section({ Title = "Silent Aim" })
-
-TabSilent:Toggle({
-    Title = "Enable Silent Aim",
-    Default = false,
-    Callback = function(v) silCfg.on=v; if v then hookSil() else unhookSil() end end
-})
-
+TabSilent:Section({ Title = "Silent Aim", TextSize = 18 })
+TabSilent:Toggle({ Title = "Enable Silent Aim", Desc = "Hooks raycasts to redirect bullets", Default = false, Callback = function(v) silCfg.on=v; if v then hookSil() else unhookSil() end end })
 TabSilent:Dropdown({ Title = "Target Part", Values = PARTS, Value = "Head", Callback = function(v) silCfg.part=v end })
 TabSilent:Toggle({ Title = "Visible Check", Default = false, Callback = function(v) silCfg.visCheck=v end })
 TabSilent:Toggle({ Title = "Screen Center", Default = false, Callback = function(v) silCfg.useCenter=v end })
-TabSilent:Slider({ Title = "Hit Chance %",  Value = {Min=1,Max=100,Default=100}, Step = 1, Callback = function(v) silCfg.hitChance=v end })
-TabSilent:Slider({ Title = "Prediction",    Value = {Min=0,Max=100,Default=0},   Step = 1, Callback = function(v) silCfg.prediction=v end })
-TabSilent:Slider({ Title = "Silent FOV",    Value = {Min=10,Max=600,Default=150},Step = 1, Callback = function(v) silCfg.fov=v;silCirc.Radius=v end })
-TabSilent:Slider({ Title = "Max Distance",  Value = {Min=10,Max=2000,Default=200},Step = 1, Callback = function(v) silCfg.maxDist=v end })
+TabSilent:Slider({ Title = "Hit Chance %", Value = {Min=1,Max=100,Default=100}, Step = 1, Callback = function(v) silCfg.hitChance=v end })
+TabSilent:Slider({ Title = "Prediction", Value = {Min=0,Max=100,Default=0}, Step = 1, Callback = function(v) silCfg.prediction=v end })
+TabSilent:Slider({ Title = "Silent FOV", Value = {Min=10,Max=600,Default=150}, Step = 1, Callback = function(v) silCfg.fov=v;silCirc.Radius=v end })
+TabSilent:Slider({ Title = "Max Distance", Value = {Min=10,Max=2000,Default=200}, Step = 1, Callback = function(v) silCfg.maxDist=v end })
 
-TabSilent:Section({ Title = "Silent FOV Circle" })
-
+TabSilent:Section({ Title = "Silent FOV Circle", TextSize = 16 })
 TabSilent:Toggle({ Title = "Show Circle", Default = false, Callback = function(v) silCfg.showCircle=v; if not v then silCirc.Visible=false end end })
 TabSilent:Slider({ Title = "Thickness x0.1", Value = {Min=5,Max=50,Default=15}, Step = 1, Callback = function(v) silCfg.circleThick=v*0.1;silCirc.Thickness=v*0.1 end })
-TabSilent:Colorpicker({ Title = "Normal Color",    Default = Color3.fromRGB(0,200,255), Callback = function(v) silCfg.circleColor=v end })
+TabSilent:Colorpicker({ Title = "Normal Color", Default = Color3.fromRGB(0,200,255), Callback = function(v) silCfg.circleColor=v end })
 TabSilent:Colorpicker({ Title = "On Target Color", Default = Color3.fromRGB(255,50,50), Callback = function(v) silCfg.targetColor=v end })
 
-TabSilent:Section({ Title = "Hit Sound" })
-
-TabSilent:Toggle({
-    Title = "Enable Hit Sound",
-    Default = false,
-    Callback = function(v)
-        hsCfg.on=v
-        if v then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) else stopHS() end
-    end
-})
-TabSilent:Dropdown({
-    Title = "Sound", Values = HIT_SOUND_LIST, Value = HIT_SOUND_LIST[1],
-    Callback = function(v) hsCfg.soundId=HIT_SOUNDS[v]; if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end
-})
+TabSilent:Section({ Title = "Hit Sound", TextSize = 16 })
+TabSilent:Toggle({ Title = "Enable Hit Sound", Default = false, Callback = function(v) hsCfg.on=v; if v then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) else stopHS() end end })
+TabSilent:Dropdown({ Title = "Sound", Values = HIT_SOUND_LIST, Value = HIT_SOUND_LIST[1], Callback = function(v) hsCfg.soundId=HIT_SOUNDS[v]; if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end })
 TabSilent:Slider({ Title = "Volume %", Value = {Min=1,Max=100,Default=100}, Step = 1, Callback = function(v) hsCfg.vol=v/100; if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end })
 TabSilent:Slider({ Title = "Pitch x0.1", Value = {Min=1,Max=30,Default=10}, Step = 1, Callback = function(v) hsCfg.pitch=v*0.1; if hsCfg.on then applyHS(hsCfg.soundId,hsCfg.vol,hsCfg.pitch) end end })
 
@@ -1121,141 +1106,128 @@ TabSilent:Slider({ Title = "Pitch x0.1", Value = {Min=1,Max=30,Default=10}, Step
 --   RAGEBOT UI
 -- =============================================
 
-TabRage:Section({ Title = "Ragebot" })
+TabRage:Section({ Title = "Ragebot", TextSize = 18 })
+TabRage:Toggle({ Title = "Enable Ragebot", Desc = "Auto-shoot with manipulation", Default = false, Callback = function(v) rageCfg.on=v; if v then startRage() else stopRage() end end })
+TabRage:Toggle({ Title = "Improved Manipulation", Desc = "Use advanced scan modes", Default = false, Callback = function(v) rageCfg.improved=v end })
 
-TabRage:Toggle({ Title = "Enable Ragebot", Default = false, Callback = function(v) rageCfg.on=v; if v then startRage() else stopRage() end end })
-TabRage:Toggle({ Title = "Improved Manipulation", Default = false, Callback = function(v) rageCfg.improved=v end })
-
-TabRage:Section({ Title = "Improved Options" })
-
+TabRage:Section({ Title = "Improved Options", TextSize = 16 })
 TabRage:Slider({ Title = "Scan Angle", Value = {Min=1,Max=90,Default=15}, Step = 1, Callback = function(v) rageCfg.scanAngle=v end })
-TabRage:Toggle({ Title = "Multi-Pass Scan",    Default = false, Callback = function(v) rageCfg.multiPass=v end })
-TabRage:Toggle({ Title = "Spiral Scan",        Default = false, Callback = function(v) rageCfg.spiral=v end })
-TabRage:Toggle({ Title = "Adaptive Distance",  Default = false, Callback = function(v) rageCfg.adaptDist=v end })
+TabRage:Toggle({ Title = "Multi-Pass Scan", Default = false, Callback = function(v) rageCfg.multiPass=v end })
+TabRage:Toggle({ Title = "Spiral Scan", Default = false, Callback = function(v) rageCfg.spiral=v end })
+TabRage:Toggle({ Title = "Adaptive Distance", Default = false, Callback = function(v) rageCfg.adaptDist=v end })
 
-TabRage:Section({ Title = "Vector Y Offsets" })
-
+TabRage:Section({ Title = "Vector Y Offsets", TextSize = 16 })
 local yk={"v1y","v2y","v3y","v4y","v5y","v6y","v7y","v8y"}
 local yd={12,16,20,24,28,32,36,40}
 for i=1,8 do
     local k=yk[i]
-    TabRage:Slider({
-        Title = "Vec "..i.." Y",
-        Value = {Min=-50,Max=100,Default=yd[i]},
-        Step = 1,
-        Callback = function(v) rageCfg[k]=v;rebuildVec() end
-    })
+    TabRage:Slider({ Title = "Vec "..i.." Y", Value = {Min=-50,Max=100,Default=yd[i]}, Step = 1, Callback = function(v) rageCfg[k]=v;rebuildVec() end })
 end
 
-TabRage:Section({ Title = "Vector X/Z Offsets" })
-
+TabRage:Section({ Title = "Vector X/Z Offsets", TextSize = 16 })
 for i=1,4 do
     local xk="v"..i.."x"; local zk="v"..i.."z"
     TabRage:Slider({ Title = "Vec "..i.." X", Value = {Min=-20,Max=20,Default=0}, Step = 1, Callback = function(v) rageCfg[xk]=v;rebuildVec() end })
     TabRage:Slider({ Title = "Vec "..i.." Z", Value = {Min=-20,Max=20,Default=0}, Step = 1, Callback = function(v) rageCfg[zk]=v;rebuildVec() end })
 end
 
-TabRage:Section({ Title = "Actions" })
-
+TabRage:Section({ Title = "Actions", TextSize = 16 })
 TabRage:Button({
     Title = "Reset Vectors",
+    Desc = "Restore default Y offsets",
     Callback = function()
         for i,k in ipairs(yk) do rageCfg[k]=yd[i] end
         for i=1,4 do rageCfg["v"..i.."x"]=0;rageCfg["v"..i.."z"]=0 end
         rebuildVec()
-        WindUI:Notify({ Title="Ragebot", Content="Vectors reset!", Duration=2 })
+        WindUI:Notify({ Title="Ragebot", Content="Vectors reset!", Duration=2, Icon="refresh-cw" })
     end
 })
 
-TabRage:Section({ Title = "Wallbang" })
-
-TabRage:Toggle({ Title = "Enable Wallbang", Default = false, Callback = function(v) wbCfg.on=v; if v then wbStart() else wbStop() end end })
+TabRage:Section({ Title = "Wallbang", TextSize = 16 })
+TabRage:Toggle({ Title = "Enable Wallbang", Desc = "Shoot through walls", Default = false, Callback = function(v) wbCfg.on=v; if v then wbStart() else wbStop() end end })
 TabRage:Dropdown({ Title = "Hit Part", Values = {"Head","Body"}, Value = "Head", Callback = function(v) wbCfg.part=v end })
-TabRage:Button({ Title = "Find Target Now", Callback = function()
-    local t=wbFind()
-    WindUI:Notify({ Title="Wallbang", Content=t and "Target: "..t.Name or "No target", Duration=3 })
-end })
+TabRage:Button({
+    Title = "Find Target",
+    Callback = function()
+        local t=wbFind()
+        WindUI:Notify({ Title="Wallbang", Content=t and "Target: "..t.Name or "No target found", Duration=3, Icon="target" })
+    end
+})
 
 -- =============================================
 --   ESP UI
 -- =============================================
 
-TabESP:Section({ Title = "ESP" })
-
+TabESP:Section({ Title = "ESP Toggles", TextSize = 18 })
 TabESP:Toggle({
-    Title = "Enable ESP", Default = false,
+    Title = "Enable ESP",
+    Desc = "Master toggle for ESP",
+    Default = false,
     Callback = function(v)
         espCfg.on=v
         if v then for _,p in ipairs(Players:GetPlayers()) do if p~=lp then mkESP(p) end end
         else for _,o in pairs(espPool) do hideESP(o) end end
     end
 })
+TabESP:Toggle({ Title = "Box", Default = false, Callback = function(v) espCfg.box=v; if v then espCfg.corners=false end end })
+TabESP:Toggle({ Title = "Corner Brackets", Default = false, Callback = function(v) espCfg.corners=v; if v then espCfg.box=false end end })
+TabESP:Toggle({ Title = "Fill", Default = false, Callback = function(v) espCfg.fill=v end })
+TabESP:Toggle({ Title = "Skeleton", Default = false, Callback = function(v) espCfg.skel=v end })
+TabESP:Toggle({ Title = "Name", Default = false, Callback = function(v) espCfg.name=v end })
+TabESP:Toggle({ Title = "Weapon", Default = false, Callback = function(v) espCfg.weapon=v end })
+TabESP:Toggle({ Title = "Distance", Default = false, Callback = function(v) espCfg.dist=v end })
+TabESP:Toggle({ Title = "Health Bar", Default = false, Callback = function(v) espCfg.hp=v end })
 
-TabESP:Toggle({ Title = "Box",         Default = false, Callback = function(v) espCfg.box=v; if v then espCfg.corners=false end end })
-TabESP:Toggle({ Title = "Corners",     Default = false, Callback = function(v) espCfg.corners=v; if v then espCfg.box=false end end })
-TabESP:Toggle({ Title = "Fill",        Default = false, Callback = function(v) espCfg.fill=v end })
-TabESP:Toggle({ Title = "Skeleton",    Default = false, Callback = function(v) espCfg.skel=v end })
-TabESP:Toggle({ Title = "Name",        Default = false, Callback = function(v) espCfg.name=v end })
-TabESP:Toggle({ Title = "Weapon",      Default = false, Callback = function(v) espCfg.weapon=v end })
-TabESP:Toggle({ Title = "Distance",    Default = false, Callback = function(v) espCfg.dist=v end })
-TabESP:Toggle({ Title = "Health Bar",  Default = false, Callback = function(v) espCfg.hp=v end })
-
-TabESP:Section({ Title = "Style" })
-
+TabESP:Section({ Title = "Style", TextSize = 16 })
 TabESP:Dropdown({ Title = "HP Bar Side", Values = {"Left","Right","Bottom","Top"}, Value = "Left", Callback = function(v) espCfg.hpStyle=v end })
 TabESP:Toggle({ Title = "HP Gradient", Default = false, Callback = function(v) espCfg.hpGrad=v end })
-TabESP:Slider({ Title = "Name Size",    Value = {Min=8,Max=24,Default=13}, Step = 1, Callback = function(v) espCfg.nameSize=v end })
-TabESP:Slider({ Title = "Weapon Size",  Value = {Min=8,Max=20,Default=11}, Step = 1, Callback = function(v) espCfg.weapSize=v end })
-TabESP:Slider({ Title = "Dist Size",    Value = {Min=8,Max=20,Default=11}, Step = 1, Callback = function(v) espCfg.distSize=v end })
-TabESP:Slider({ Title = "Fill Alpha %", Value = {Min=10,Max=99,Default=75},Step = 1, Callback = function(v) espCfg.fillAlpha=v/100 end })
-TabESP:Slider({ Title = "Corner Len %", Value = {Min=10,Max=50,Default=25},Step = 1, Callback = function(v) espCfg.cornerLen=v/100 end })
-TabESP:Slider({ Title = "HP Width",     Value = {Min=1,Max=10,Default=3},  Step = 1, Callback = function(v) espCfg.hpW=v end })
-TabESP:Slider({ Title = "HP Offset",    Value = {Min=1,Max=20,Default=1},  Step = 1, Callback = function(v) espCfg.hpOff=v end })
+TabESP:Slider({ Title = "Name Size", Value = {Min=8,Max=24,Default=13}, Step = 1, Callback = function(v) espCfg.nameSize=v end })
+TabESP:Slider({ Title = "Weapon Size", Value = {Min=8,Max=20,Default=11}, Step = 1, Callback = function(v) espCfg.weapSize=v end })
+TabESP:Slider({ Title = "Dist Size", Value = {Min=8,Max=20,Default=11}, Step = 1, Callback = function(v) espCfg.distSize=v end })
+TabESP:Slider({ Title = "Fill Alpha %", Value = {Min=10,Max=99,Default=75}, Step = 1, Callback = function(v) espCfg.fillAlpha=v/100 end })
+TabESP:Slider({ Title = "Corner Len %", Value = {Min=10,Max=50,Default=25}, Step = 1, Callback = function(v) espCfg.cornerLen=v/100 end })
+TabESP:Slider({ Title = "HP Width", Value = {Min=1,Max=10,Default=3}, Step = 1, Callback = function(v) espCfg.hpW=v end })
+TabESP:Slider({ Title = "HP Offset", Value = {Min=1,Max=20,Default=1}, Step = 1, Callback = function(v) espCfg.hpOff=v end })
 
-TabESP:Section({ Title = "Filters" })
-
-TabESP:Toggle({ Title = "Team Check",          Default = false, Callback = function(v) espCfg.teamCheck=v end })
-TabESP:Toggle({ Title = "Visible Only",        Default = false, Callback = function(v) espCfg.visOnly=v end })
+TabESP:Section({ Title = "Filters", TextSize = 16 })
+TabESP:Toggle({ Title = "Team Check", Default = false, Callback = function(v) espCfg.teamCheck=v end })
+TabESP:Toggle({ Title = "Visible Only", Default = false, Callback = function(v) espCfg.visOnly=v end })
 TabESP:Toggle({ Title = "Color by Visibility", Default = false, Callback = function(v) espCfg.colorVis=v end })
 TabESP:Slider({ Title = "Max Distance", Value = {Min=50,Max=5000,Default=1000}, Step = 50, Callback = function(v) espCfg.maxDist=v end })
 
-TabESP:Section({ Title = "Colors" })
-
-TabESP:Colorpicker({ Title = "Box",      Default = Color3.fromRGB(255,60,60),  Callback = function(v) espCfg.boxCol=v end })
-TabESP:Colorpicker({ Title = "Enemy",    Default = Color3.fromRGB(255,60,60),  Callback = function(v) espCfg.enemyCol=v end })
-TabESP:Colorpicker({ Title = "Visible",  Default = Color3.fromRGB(60,220,60),  Callback = function(v) espCfg.visCol=v end })
-TabESP:Colorpicker({ Title = "Fill",     Default = Color3.fromRGB(255,255,255),Callback = function(v) espCfg.fillCol=v end })
-TabESP:Colorpicker({ Title = "Skeleton", Default = Color3.fromRGB(255,220,0),  Callback = function(v) espCfg.skelCol=v end })
-TabESP:Colorpicker({ Title = "Name",     Default = Color3.fromRGB(255,255,255),Callback = function(v) espCfg.nameCol=v end })
-TabESP:Colorpicker({ Title = "Weapon",   Default = Color3.fromRGB(160,160,255),Callback = function(v) espCfg.weapCol=v end })
-TabESP:Colorpicker({ Title = "Distance", Default = Color3.fromRGB(180,180,180),Callback = function(v) espCfg.distCol=v end })
+TabESP:Section({ Title = "Colors", TextSize = 16 })
+TabESP:Colorpicker({ Title = "Box", Default = Color3.fromRGB(255,60,60), Callback = function(v) espCfg.boxCol=v end })
+TabESP:Colorpicker({ Title = "Enemy (Not Visible)", Default = Color3.fromRGB(255,60,60), Callback = function(v) espCfg.enemyCol=v end })
+TabESP:Colorpicker({ Title = "Visible", Default = Color3.fromRGB(60,220,60), Callback = function(v) espCfg.visCol=v end })
+TabESP:Colorpicker({ Title = "Fill", Default = Color3.fromRGB(255,255,255), Callback = function(v) espCfg.fillCol=v end })
+TabESP:Colorpicker({ Title = "Skeleton", Default = Color3.fromRGB(255,220,0), Callback = function(v) espCfg.skelCol=v end })
+TabESP:Colorpicker({ Title = "Name", Default = Color3.fromRGB(255,255,255), Callback = function(v) espCfg.nameCol=v end })
+TabESP:Colorpicker({ Title = "Weapon", Default = Color3.fromRGB(160,160,255), Callback = function(v) espCfg.weapCol=v end })
+TabESP:Colorpicker({ Title = "Distance", Default = Color3.fromRGB(180,180,180), Callback = function(v) espCfg.distCol=v end })
 
 -- =============================================
 --   CAMERA UI
 -- =============================================
 
-TabCamera:Section({ Title = "Camera" })
-
+TabCamera:Section({ Title = "Camera", TextSize = 18 })
 TabCamera:Toggle({ Title = "FOV Changer", Default = false, Callback = function(v) camCfg.fovOn=v end })
 TabCamera:Slider({ Title = "FOV Value", Value = {Min=30,Max=120,Default=80}, Step = 1, Callback = function(v) camCfg.fovVal=v end })
-TabCamera:Toggle({ Title = "No Shake",        Default = false, Callback = function(v) camCfg.noShake=v end })
-TabCamera:Toggle({ Title = "No Sway",         Default = false, Callback = function(v) camCfg.noSway=v end })
-TabCamera:Toggle({ Title = "No Bobbing",      Default = false, Callback = function(v) camCfg.noBob=v end })
-TabCamera:Toggle({ Title = "No Jump Effect",  Default = false, Callback = function(v) camCfg.noJump=v end })
-TabCamera:Toggle({ Title = "No Slide Tilt",   Default = false, Callback = function(v) camCfg.noTilt=v end })
+TabCamera:Toggle({ Title = "No Camera Shake", Default = false, Callback = function(v) camCfg.noShake=v end })
+TabCamera:Toggle({ Title = "No Weapon Sway", Default = false, Callback = function(v) camCfg.noSway=v end })
+TabCamera:Toggle({ Title = "No Bobbing", Default = false, Callback = function(v) camCfg.noBob=v end })
+TabCamera:Toggle({ Title = "No Jump Effect", Default = false, Callback = function(v) camCfg.noJump=v end })
+TabCamera:Toggle({ Title = "No Slide Tilt", Default = false, Callback = function(v) camCfg.noTilt=v end })
 TabCamera:Toggle({ Title = "Force Crosshair", Default = false, Callback = function(v) camCfg.forceCross=v end })
 
-TabCamera:Section({ Title = "Sensitivity" })
-
+TabCamera:Section({ Title = "Sensitivity", TextSize = 16 })
 TabCamera:Toggle({ Title = "Override Sensitivity", Default = false, Callback = function(v) camCfg.sensOn=v end })
-TabCamera:Slider({ Title = "Sensitivity %",  Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sens=v/100 end })
-TabCamera:Slider({ Title = "ADS Sens %",     Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensADS=v/100 end })
-TabCamera:Slider({ Title = "Scoped Sens %",  Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensScope=v/100 end })
-TabCamera:Slider({ Title = "Sens X %",       Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensX=v/100 end })
-TabCamera:Slider({ Title = "Sens Y %",       Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensY=v/100 end })
+TabCamera:Slider({ Title = "Sensitivity %", Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sens=v/100 end })
+TabCamera:Slider({ Title = "ADS Sens %", Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensADS=v/100 end })
+TabCamera:Slider({ Title = "Scoped Sens %", Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensScope=v/100 end })
+TabCamera:Slider({ Title = "Sens X %", Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensX=v/100 end })
+TabCamera:Slider({ Title = "Sens Y %", Value = {Min=1,Max=500,Default=100}, Step = 1, Callback = function(v) camCfg.sensY=v/100 end })
 
-TabCamera:Section({ Title = "Viewmodel" })
-
+TabCamera:Section({ Title = "Viewmodel", TextSize = 16 })
 TabCamera:Toggle({ Title = "Custom Viewmodel", Default = false, Callback = function(v) camCfg.vmOn=v end })
 TabCamera:Slider({ Title = "X Offset x0.1", Value = {Min=-50,Max=50,Default=0}, Step = 1, Callback = function(v) camCfg.vmX=v*0.1 end })
 TabCamera:Slider({ Title = "Y Offset x0.1", Value = {Min=-50,Max=50,Default=0}, Step = 1, Callback = function(v) camCfg.vmY=v*0.1 end })
@@ -1271,34 +1243,32 @@ for _,t in ipairs({PRIMARY_WEAPONS,SECONDARY_WEAPONS,MELEE_WEAPONS,UTILITY_WEAPO
 end
 table.sort(wl)
 
-TabSkins:Section({ Title = "Skin Unlocker" })
-
+TabSkins:Section({ Title = "Skin Unlocker", TextSize = 18 })
 TabSkins:Toggle({
     Title = "Enable",
     Default = false,
     Callback = function(v) skinCfg.on=v; if v then installSkinHook(); if skinCfg.autoLoad then loadSkins() end end end
 })
-TabSkins:Toggle({ Title = "Auto-Load", Default = true, Callback = function(v) skinCfg.autoLoad=v end })
+TabSkins:Toggle({ Title = "Auto-Load on Execute", Default = true, Callback = function(v) skinCfg.autoLoad=v end })
 
-TabSkins:Section({ Title = "Equip Cosmetics" })
-
-TabSkins:Dropdown({ Title = "Weapon",   Values = wl,         Value = wl[1],   Callback = function(v) skinCfg.weapon=v end })
-TabSkins:Dropdown({ Title = "Skin",     Values = {"None"},   Value = "None",  Callback = function(v) skinCfg.skin=v end })
-TabSkins:Dropdown({ Title = "Wrap",     Values = {"None"},   Value = "None",  Callback = function(v) skinCfg.wrap=v end })
-TabSkins:Dropdown({ Title = "Charm",    Values = {"None"},   Value = "None",  Callback = function(v) skinCfg.charm=v end })
-TabSkins:Dropdown({ Title = "Finisher", Values = {"None"},   Value = "None",  Callback = function(v) skinCfg.finish=v end })
+TabSkins:Section({ Title = "Equip Cosmetics", TextSize = 16 })
+TabSkins:Dropdown({ Title = "Weapon", Values = wl, Value = wl[1], Callback = function(v) skinCfg.weapon=v end })
+TabSkins:Dropdown({ Title = "Skin", Values = {"None"}, Value = "None", Callback = function(v) skinCfg.skin=v end })
+TabSkins:Dropdown({ Title = "Wrap", Values = {"None"}, Value = "None", Callback = function(v) skinCfg.wrap=v end })
+TabSkins:Dropdown({ Title = "Charm", Values = {"None"}, Value = "None", Callback = function(v) skinCfg.charm=v end })
+TabSkins:Dropdown({ Title = "Finisher", Values = {"None"}, Value = "None", Callback = function(v) skinCfg.finish=v end })
 
 TabSkins:Button({
     Title = "Equip Selected",
     Callback = function()
-        if not skinCfg.on then WindUI:Notify({Title="Skins",Content="Enable first!",Duration=2});return end
-        if not skinCfg.weapon then WindUI:Notify({Title="Skins",Content="Pick a weapon!",Duration=2});return end
+        if not skinCfg.on then WindUI:Notify({Title="Skins",Content="Enable first!",Duration=2,Icon="alert-circle"});return end
+        if not skinCfg.weapon then WindUI:Notify({Title="Skins",Content="Pick a weapon!",Duration=2,Icon="alert-circle"});return end
         local c=0
         if skinCfg.skin~="None" then equipSkin(skinCfg.weapon,"Skin",skinCfg.skin);c=c+1 end
         if skinCfg.wrap~="None" then equipSkin(skinCfg.weapon,"Wrap",skinCfg.wrap);c=c+1 end
         if skinCfg.charm~="None" then equipSkin(skinCfg.weapon,"Charm",skinCfg.charm);c=c+1 end
         if skinCfg.finish~="None" then equipSkin(skinCfg.weapon,"Finisher",skinCfg.finish);c=c+1 end
-        WindUI:Notify({Title="Skins",Content=c>0 and "Equipped "..c.." item(s)" or "Nothing selected",Duration=2})
+        WindUI:Notify({Title="Skins",Content=c>0 and "Equipped "..c.." item(s)" or "Nothing selected",Duration=2,Icon="check"})
     end
 })
 TabSkins:Button({
@@ -1306,22 +1276,21 @@ TabSkins:Button({
     Callback = function()
         if not skinCfg.weapon then return end
         equipped[skinCfg.weapon]=nil; saveSkins()
-        WindUI:Notify({Title="Skins",Content="Unequipped!",Duration=2})
+        WindUI:Notify({Title="Skins",Content="Unequipped!",Duration=2,Icon="check"})
     end
 })
 
-TabSkins:Section({ Title = "Config" })
-
-TabSkins:Button({ Title = "Save",      Callback = function() saveSkins();WindUI:Notify({Title="Skins",Content="Saved!",Duration=2}) end })
-TabSkins:Button({ Title = "Load",      Callback = function() loadSkins();WindUI:Notify({Title="Skins",Content="Loaded!",Duration=2}) end })
-TabSkins:Button({ Title = "Reset All", Callback = function() equipped={};saveSkins();WindUI:Notify({Title="Skins",Content="Reset!",Duration=2}) end })
+TabSkins:Section({ Title = "Config", TextSize = 16 })
+TabSkins:Button({ Title = "Save Config", Callback = function() saveSkins();WindUI:Notify({Title="Skins",Content="Saved!",Duration=2,Icon="save"}) end })
+TabSkins:Button({ Title = "Load Config", Callback = function() loadSkins();WindUI:Notify({Title="Skins",Content="Loaded!",Duration=2,Icon="download"}) end })
+TabSkins:Button({ Title = "Reset All", Callback = function() equipped={};saveSkins();WindUI:Notify({Title="Skins",Content="Reset!",Duration=2,Icon="trash"}) end })
 
 task.spawn(function()
     task.wait(3)
     if readfile and isfile and isfile(skinPath) then
         installSkinHook(); loadSkins()
         local n=0; for _ in pairs(equipped) do n=n+1 end
-        WindUI:Notify({Title="Skins",Content="Auto-loaded ("..n.." weapons)",Duration=3})
+        WindUI:Notify({Title="Skins",Content="Auto-loaded ("..n.." weapons)",Duration=3,Icon="check"})
     end
 end)
 
@@ -1329,20 +1298,18 @@ end)
 --   MISC UI
 -- =============================================
 
-TabMisc:Section({ Title = "Loadout" })
-
-TabMisc:Dropdown({ Title = "Primary",   Values = PRIMARY_WEAPONS,   Value = PRIMARY_WEAPONS[1],   Callback = function(v) loadoutCfg.prim=v end })
+TabMisc:Section({ Title = "Loadout", TextSize = 18 })
+TabMisc:Dropdown({ Title = "Primary", Values = PRIMARY_WEAPONS, Value = PRIMARY_WEAPONS[1], Callback = function(v) loadoutCfg.prim=v end })
 TabMisc:Dropdown({ Title = "Secondary", Values = SECONDARY_WEAPONS, Value = SECONDARY_WEAPONS[1], Callback = function(v) loadoutCfg.sec=v end })
-TabMisc:Dropdown({ Title = "Melee",     Values = MELEE_WEAPONS,     Value = MELEE_WEAPONS[1],     Callback = function(v) loadoutCfg.melee=v end })
-TabMisc:Dropdown({ Title = "Utility",   Values = UTILITY_WEAPONS,   Value = UTILITY_WEAPONS[1],   Callback = function(v) loadoutCfg.util=v end })
-
+TabMisc:Dropdown({ Title = "Melee", Values = MELEE_WEAPONS, Value = MELEE_WEAPONS[1], Callback = function(v) loadoutCfg.melee=v end })
+TabMisc:Dropdown({ Title = "Utility", Values = UTILITY_WEAPONS, Value = UTILITY_WEAPONS[1], Callback = function(v) loadoutCfg.util=v end })
 TabMisc:Button({
     Title = "Apply Loadout",
     Callback = function()
         pcall(function()
             if Rem.PickWeapons then
                 Rem.PickWeapons:FireServer({loadoutCfg.prim,loadoutCfg.sec,loadoutCfg.melee,loadoutCfg.util})
-                WindUI:Notify({Title="Misc",Content="Loadout applied!",Duration=2})
+                WindUI:Notify({Title="Misc",Content="Loadout applied!",Duration=2,Icon="check"})
             end
         end)
     end
@@ -1360,26 +1327,24 @@ lp.CharacterAdded:Connect(function()
     end
 end)
 
-TabMisc:Section({ Title = "Queue" })
-
-TabMisc:Dropdown({ Title = "Mode", Values = QUEUE_MODES, Value = QUEUE_MODES[1], Callback = function(v) miscCfg.queueMode=v end })
+TabMisc:Section({ Title = "Queue", TextSize = 16 })
+TabMisc:Dropdown({ Title = "Queue Mode", Values = QUEUE_MODES, Value = QUEUE_MODES[1], Callback = function(v) miscCfg.queueMode=v end })
 TabMisc:Button({
     Title = "Join Queue",
     Callback = function()
         pcall(function()
-            if Rem.Queue then Rem.Queue:InvokeServer(miscCfg.queueMode); WindUI:Notify({Title="Misc",Content="Joined!",Duration=2}) end
+            if Rem.Queue then Rem.Queue:InvokeServer(miscCfg.queueMode); WindUI:Notify({Title="Misc",Content="Joined!",Duration=2,Icon="play"}) end
         end)
     end
 })
 
-TabMisc:Section({ Title = "Map Vote" })
-
+TabMisc:Section({ Title = "Map Vote", TextSize = 16 })
 TabMisc:Dropdown({ Title = "Map", Values = MAPS, Value = MAPS[1], Callback = function(v) miscCfg.voteMap=v end })
 TabMisc:Button({
     Title = "Vote",
     Callback = function()
         pcall(function()
-            if Rem.Vote then Rem.Vote:FireServer(miscCfg.voteMap); WindUI:Notify({Title="Misc",Content="Voted!",Duration=2}) end
+            if Rem.Vote then Rem.Vote:FireServer(miscCfg.voteMap); WindUI:Notify({Title="Misc",Content="Voted!",Duration=2,Icon="check"}) end
         end)
     end
 })
@@ -1404,10 +1369,9 @@ TabMisc:Toggle({
 --   SKYBOX UI
 -- =============================================
 
-TabSkybox:Section({ Title = "Skybox" })
-
+TabSkybox:Section({ Title = "Skybox", TextSize = 18 })
 TabSkybox:Toggle({
-    Title = "Enable",
+    Title = "Enable Custom Skybox",
     Default = false,
     Callback = function(v) skyCfg.on=v; if v then applySky(skyCfg.selected) else restoreSky() end end
 })
@@ -1417,17 +1381,72 @@ TabSkybox:Dropdown({
     Value = "Default",
     Callback = function(v) skyCfg.selected=v; if skyCfg.on then applySky(v) end end
 })
-TabSkybox:Button({ Title = "Apply",   Callback = function() if skyCfg.on then applySky(skyCfg.selected) end end })
-TabSkybox:Button({ Title = "Restore", Callback = function() restoreSky() end })
+TabSkybox:Button({ Title = "Apply Now", Callback = function() if skyCfg.on then applySky(skyCfg.selected) end end })
+TabSkybox:Button({ Title = "Restore Original", Callback = function() restoreSky() end })
 
 -- =============================================
---   UI TAB
+--   SETTINGS / THEMES UI
 -- =============================================
 
-TabUI:Section({ Title = "Script" })
+TabSettings:Section({ Title = "Themes", TextSize = 18 })
 
-TabUI:Button({
+local themeList = {}
+pcall(function()
+    if WindUI.Themes then
+        for name, _ in pairs(WindUI.Themes) do
+            table.insert(themeList, name)
+        end
+    end
+end)
+if #themeList == 0 then
+    themeList = {"Dark","Light","Plant","Rose","Ocean"}
+end
+table.sort(themeList)
+
+TabSettings:Dropdown({
+    Title = "UI Theme",
+    Desc = "Change the visual theme of the menu",
+    Values = themeList,
+    Value = "Dark",
+    Callback = function(v)
+        pcall(function() WindUI:SetTheme(v) end)
+        WindUI:Notify({ Title = "Theme", Content = "Applied: " .. v, Duration = 2, Icon = "palette" })
+    end
+})
+
+TabSettings:Section({ Title = "Window", TextSize = 16 })
+
+TabSettings:Slider({
+    Title = "Transparency",
+    Value = {Min=0,Max=100,Default=20},
+    Step = 5,
+    Callback = function(v)
+        pcall(function() Window:ToggleTransparency(v > 0) end)
+    end
+})
+
+TabSettings:Toggle({
+    Title = "Notification Lower",
+    Desc = "Notifications appear at bottom",
+    Default = true,
+    Callback = function(v)
+        pcall(function() WindUI:SetNotificationLower(v) end)
+    end
+})
+
+TabSettings:Button({
+    Title = "Minimize Window",
+    Desc = "Hide the window (use toggle key to re-open)",
+    Callback = function()
+        pcall(function() Window:Minimize() end)
+    end
+})
+
+TabSettings:Section({ Title = "Script", TextSize = 16 })
+
+TabSettings:Button({
     Title = "Unload Script",
+    Desc = "Disable all features and close the UI",
     Callback = function()
         AB.on=false; rageCfg.on=false; wbCfg.on=false
         espCfg.on=false; autoVoteActive=false
@@ -1436,9 +1455,19 @@ TabUI:Button({
         pcall(function() fovCirc:Remove();fovHalf:Remove();silCirc:Remove();abCirc:Remove() end)
         restoreSky()
         pcall(function() RunService:UnbindFromRenderStep("__wbR") end)
-        Window:Destroy()
+        pcall(function() Window:Destroy() end)
     end
 })
+
+TabSettings:Section({ Title = "Info", TextSize = 16 })
+
+TabSettings:Paragraph({
+    Title = "Rivals Hub v2.4",
+    Desc = "Full feature script with WindUI.\n• Aimbot / Silent Aim / Ragebot\n• Wallbang / ESP / Camera Mods\n• Skin Unlocker / Auto Queue\n• Map Voting / Skybox / Themes"
+})
+
+-- Select first tab so content shows
+pcall(function() Window:SelectTab(1) end)
 
 -- =============================================
 --   MAIN LOOP
@@ -1534,7 +1563,7 @@ RunService.RenderStepped:Connect(function(dt)
     else silCirc.Visible=false end
 end)
 
-WindUI:Notify({ Title = "Rivals v2.4", Content = "Loaded successfully!", Duration = 4 })
-print("[Rivals v2.4] Loaded with Footagesus WindUI")
+WindUI:Notify({ Title = "Rivals v2.4", Content = "Loaded successfully!", Duration = 4, Icon = "check" })
+print("[Rivals v2.4] Loaded")
 
 end)
